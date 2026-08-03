@@ -267,8 +267,8 @@ export default function Pricing() {
             <div className="d-flex">
               <i className="bi bi-qr-code-scan text-primary fs-2 me-3"></i>
               <div>
-                <h6 className="fw-bold mb-1">Static & Locked Amount QR</h6>
-                <p className="small text-muted">Scan the static PhonePe QR poster or use the locked amount QR to pay directly.</p>
+                <h6 className="fw-bold mb-1">Static PhonePe QR Payment</h6>
+                <p className="small text-muted">Scan the PhonePe QR code with any UPI app to pay your plan amount.</p>
               </div>
             </div>
           </div>
@@ -302,7 +302,7 @@ export default function Pricing() {
           tabIndex="-1"
           style={{ backgroundColor: 'rgba(15, 23, 42, 0.75)', backdropFilter: 'blur(8px)', zIndex: 1055 }}
         >
-          <div className="modal-dialog modal-dialog-centered modal-lg">
+          <div className="modal-dialog modal-dialog-centered modal-md">
             <div className="modal-content border-0 shadow-lg rounded-4 overflow-hidden">
               {/* Modal Header */}
               <div className="modal-header bg-dark text-white border-0 px-4 py-3 d-flex align-items-center justify-content-between">
@@ -310,7 +310,7 @@ export default function Pricing() {
                   <div className="bg-primary rounded-circle me-2.5 d-inline-flex align-items-center justify-content-center" style={{ width: '28px', height: '28px' }}>
                     <i className="bi bi-qr-code text-white fs-6"></i>
                   </div>
-                  <h5 className="modal-title fw-bold mb-0 fs-5">Scan & Pay via PhonePe / UPI</h5>
+                  <h5 className="modal-title fw-bold mb-0 fs-5">PhonePe Payment QR</h5>
                 </div>
                 <button
                   type="button"
@@ -321,7 +321,7 @@ export default function Pricing() {
 
               {/* Modal Body */}
               <div className="modal-body p-4 text-center">
-                {/* Plan Info Pill */}
+                {/* Plan Info & Locked Amount Pill */}
                 <div className="bg-light p-3 rounded-4 mb-3 border d-flex align-items-center justify-content-between">
                   <div className="text-start">
                     <span className="badge bg-primary-subtle text-primary rounded-pill px-2.5 py-1 small fw-bold mb-1">
@@ -330,45 +330,24 @@ export default function Pricing() {
                     <h6 className="fw-bold text-dark mb-0">{activePlan.name}</h6>
                   </div>
                   <div className="text-end">
-                    <span className="small text-muted d-block">LOCKED AMOUNT</span>
+                    <span className="small text-muted d-block font-monospace fw-bold">LOCKED AMOUNT</span>
                     <span className="h3 fw-black text-primary mb-0" style={{ fontWeight: 900 }}>₹{activePlan.price}</span>
                   </div>
                 </div>
 
-                {/* Dual QR Options: Locked Amount QR & Static PhonePe Poster QR */}
-                <div className="row g-3 justify-content-center mb-3">
-                  {/* Option 1: Fixed & Locked Amount QR */}
-                  <div className="col-md-6 text-center">
-                    <div className="border bg-white p-3 rounded-4 shadow-sm h-100">
-                      <span className="badge bg-success-subtle text-success rounded-pill px-2.5 py-1 small fw-bold mb-2">
-                        LOCKED AMOUNT QR (₹{activePlan.price})
-                      </span>
-                      <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=9110396906@ybl&pn=PDFPowerHouse&am=${activePlan.price}&cu=INR&tn=${encodeURIComponent(activePlan.name)}`)}`}
-                        alt={`Fixed Amount UPI QR Code - ₹${activePlan.price}`}
-                        className="img-fluid rounded border p-2 bg-white"
-                        style={{ maxWidth: '180px', height: '180px' }}
-                      />
-                      <div className="small text-muted mt-1 font-monospace fs-7">Auto-locks ₹{activePlan.price} Amount</div>
-                    </div>
-                  </div>
-
-                  {/* Option 2: Official Static PhonePe Poster QR */}
-                  <div className="col-md-6 text-center">
-                    <div className="border bg-dark p-3 rounded-4 shadow-sm h-100 text-white">
-                      <span className="badge bg-primary rounded-pill px-2.5 py-1 small fw-bold mb-2">
-                        STATIC PHONEPE POSTER QR
-                      </span>
-                      <img
-                        src="/phonepe_qr.jpg"
-                        onError={(e) => { e.target.src = "/static/images/phonepe_qr.jpg"; }}
-                        alt="PhonePe QR Code - Dasari Tharun Teja"
-                        className="img-fluid rounded-3 border border-secondary p-1"
-                        style={{ maxWidth: '180px', height: '180px', objectFit: 'contain' }}
-                      />
-                      <div className="small text-white-50 mt-1 fs-7">Dasari Tharun Teja</div>
-                    </div>
-                  </div>
+                {/* Single Static PhonePe QR Poster Image (Ms Dasari Sunitha) */}
+                <div className="bg-dark p-3 rounded-4 shadow-sm mb-3 d-inline-block w-100" style={{ maxWidth: '320px' }}>
+                  <span className="badge bg-primary rounded-pill px-3 py-1 small fw-bold mb-2">
+                    PHONEPE QR
+                  </span>
+                  <img
+                    src="/phonepe_qr.jpg"
+                    onError={(e) => { e.target.src = "/static/images/phonepe_qr.jpg"; }}
+                    alt="PhonePe QR Code - Ms Dasari Sunitha"
+                    className="img-fluid rounded-3 border border-secondary p-1"
+                    style={{ width: '100%', height: 'auto', maxHeight: '340px', objectFit: 'contain' }}
+                  />
+                  <div className="small text-white-50 mt-2 fw-semibold">Ms Dasari Sunitha</div>
                 </div>
 
                 {/* UPI ID Info with Copy Button */}
@@ -384,7 +363,7 @@ export default function Pricing() {
 
                 {/* Instructions */}
                 <p className="small text-muted mb-3">
-                  Scan either QR code using <strong>PhonePe</strong>, GPay, Paytm, or any UPI app to pay <strong>₹{activePlan.price}</strong>.
+                  Scan the QR code using <strong>PhonePe</strong> or any UPI app and pay the locked amount <strong>₹{activePlan.price}</strong>.
                 </p>
 
                 {/* Confirm Payment Action Button */}

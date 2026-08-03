@@ -172,8 +172,8 @@ export default function UpiPayment() {
               </div>
             </div>
 
-            {/* Dual QR Options: Locked Amount QR & Static PhonePe Poster QR */}
-            <div className="bg-light p-4 rounded-4 mb-4 border border-light shadow-sm">
+            {/* Single Official PhonePe QR Poster Box (Ms Dasari Sunitha) */}
+            <div className="bg-light p-4 rounded-4 mb-4 border border-light shadow-sm text-center">
               {verifiedSuccess ? (
                 <div className="py-4 text-success text-center">
                   <div className="spinner-grow text-success mb-3" role="status" style={{ width: '3rem', height: '3rem' }}></div>
@@ -182,45 +182,18 @@ export default function UpiPayment() {
                 </div>
               ) : (
                 <>
-                  <div className="row g-3 justify-content-center align-items-center mb-3">
-                    {/* Option 1: Fixed & Locked Amount QR */}
-                    <div className="col-md-6 text-center">
-                      <div className="border bg-white p-3 rounded-4 shadow-sm h-100">
-                        <span className="badge bg-success-subtle text-success rounded-pill px-2.5 py-1 small fw-bold mb-2">
-                          LOCKED AMOUNT QR (₹{plan?.price ?? '0.00'})
-                        </span>
-                        {qrUrl ? (
-                          <img
-                            src={qrUrl}
-                            alt={`Fixed Amount UPI QR Code - ₹${plan?.price}`}
-                            className="img-fluid rounded border p-2 bg-white"
-                            style={{ maxWidth: '190px', height: '190px' }}
-                          />
-                        ) : (
-                          <div className="d-flex align-items-center justify-content-center bg-light rounded p-4" style={{ width: '190px', height: '190px' }}>
-                            <div className="spinner-border text-primary" role="status"></div>
-                          </div>
-                        )}
-                        <div className="small text-muted mt-1 font-monospace fs-7">Auto-locks ₹{plan?.price} Amount</div>
-                      </div>
-                    </div>
-
-                    {/* Option 2: Official Static PhonePe Poster QR */}
-                    <div className="col-md-6 text-center">
-                      <div className="border bg-dark p-3 rounded-4 shadow-sm h-100 text-white">
-                        <span className="badge bg-primary rounded-pill px-2.5 py-1 small fw-bold mb-2">
-                          STATIC PHONEPE QR
-                        </span>
-                        <img
-                          src="/phonepe_qr.jpg"
-                          onError={(e) => { e.target.src = "/static/images/phonepe_qr.jpg"; }}
-                          alt="PhonePe QR Code - Dasari Tharun Teja"
-                          className="img-fluid rounded-3 border border-secondary p-1"
-                          style={{ maxWidth: '190px', height: '190px', objectFit: 'contain' }}
-                        />
-                        <div className="small text-white-50 mt-1 fs-7">Dasari Tharun Teja</div>
-                      </div>
-                    </div>
+                  <div className="d-inline-block bg-dark p-3 rounded-4 shadow-sm mb-3 mx-auto text-white" style={{ maxWidth: '320px' }}>
+                    <span className="badge bg-primary rounded-pill px-3 py-1 small fw-bold mb-2">
+                      PHONEPE QR
+                    </span>
+                    <img
+                      src="/phonepe_qr.jpg"
+                      onError={(e) => { e.target.src = "/static/images/phonepe_qr.jpg"; }}
+                      alt="PhonePe QR Code - Ms Dasari Sunitha"
+                      className="img-fluid rounded-3 border border-secondary p-1"
+                      style={{ width: '100%', height: 'auto', maxHeight: '340px', objectFit: 'contain' }}
+                    />
+                    <div className="small text-white-50 mt-2 fw-semibold">Ms Dasari Sunitha</div>
                   </div>
 
                   <div className="mt-2 text-center">
