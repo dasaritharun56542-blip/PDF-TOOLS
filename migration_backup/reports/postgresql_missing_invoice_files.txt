@@ -1,0 +1,19 @@
+========================================
+MISSING INVOICE FILES REPORT
+========================================
+
+The following 11 invoice PDF files are referenced in the database but are missing from media/invoices/:
+
+- Invoice ID #2 - Number: INV-ORD_saastest_1784089861 - File Path: media/invoices/invoice_INV-ORD_saastest_1784089861.pdf
+- Invoice ID #12 - Number: INV-PPH-2026-BE8D89CB33 - File Path: media/invoices/invoice_INV-PPH-2026-BE8D89CB33.pdf
+- Invoice ID #13 - Number: INV-PPH-2026-C67BF6853D - File Path: media/invoices/invoice_INV-PPH-2026-C67BF6853D.pdf
+- Invoice ID #14 - Number: INV-PPH-2026-68DE75C633 - File Path: media/invoices/invoice_INV-PPH-2026-68DE75C633.pdf
+- Invoice ID #15 - Number: INV-PPH-2026-248375C58C - File Path: media/invoices/invoice_INV-PPH-2026-248375C58C.pdf
+- Invoice ID #16 - Number: INV-PPH-2026-3331CD6DE7 - File Path: media/invoices/invoice_INV-PPH-2026-3331CD6DE7.pdf
+- Invoice ID #17 - Number: INV-PPH-2026-96A1712E05 - File Path: media/invoices/invoice_INV-PPH-2026-96A1712E05.pdf
+- Invoice ID #18 - Number: INV-PPH-2026-A1671F97DA - File Path: media/invoices/invoice_INV-PPH-2026-A1671F97DA.pdf
+- Invoice ID #19 - Number: INV-PPH-2026-FFE402F0D4 - File Path: media/invoices/invoice_INV-PPH-2026-FFE402F0D4.pdf
+- Invoice ID #20 - Number: INV-PPH-2026-1C8F9FF83D - File Path: media/invoices/invoice_INV-PPH-2026-1C8F9FF83D.pdf
+- Invoice ID #21 - Number: INV-PPH-2026-6266BCE205 - File Path: media/invoices/invoice_INV-PPH-2026-6266BCE205.pdf
+
+These references have been preserved 100% intact in PostgreSQL database without modification.
