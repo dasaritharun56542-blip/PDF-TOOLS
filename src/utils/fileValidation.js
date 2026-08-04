@@ -133,12 +133,6 @@ export const TOOL_CATEGORY_MAP = {
   'convert-image-format': 'image_default',
   'remove-background': 'image_default',
   'ocr-image': 'image_default',
-
-  // Office Tools
-  'word-to-pdf': 'word_default',
-  'excel-to-pdf': 'excel_default',
-  'pptx-to-pdf': 'ppt_default',
-  'powerpoint-to-pdf': 'ppt_default',
 };
 
 // Get HTML Input Accept Attribute String for any tool

@@ -118,7 +118,7 @@ class SupabaseStorageService:
                 f"Invalid storage category '{category}'. Allowed: {', '.join(cls.ALLOWED_CATEGORIES)}"
             )
 
-        if not user_id:
+        if user_id is None:
             raise SupabaseStorageError("User ID must be provided for user storage paths.")
 
         clean_filename = os.path.basename(filename.strip().replace('\\', '/'))

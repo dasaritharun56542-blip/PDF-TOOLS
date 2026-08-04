@@ -32,9 +32,6 @@ export const TOOLS = {
   'pdf-to-png': { name: 'PDF to PNG', icon: 'bi-filetype-png', desc: 'Convert PDF pages into high quality PNGs.', cat: 'convert_from' },
   'flatten-pdf': { name: 'Flatten PDF', icon: 'bi-layers-half', desc: 'Flatten form fields and layers into static PDF.', cat: 'optimize' },
   'pdf-thumbnail-viewer': { name: 'PDF Thumbnail Viewer', icon: 'bi-grid-fill', desc: 'View and export thumbnail grid of PDF pages.', cat: 'optimize' },
-  'word-to-pdf': { name: 'Word to PDF', icon: 'bi-file-earmark-word-fill', desc: 'Convert Word documents (.docx, .doc) to PDF.', cat: 'convert_to', premium: true },
-  'excel-to-pdf': { name: 'Excel to PDF', icon: 'bi-file-earmark-excel-fill', desc: 'Transform Excel spreadsheets (.xlsx, .xls) to PDF.', cat: 'convert_to', premium: true },
-  'pptx-to-pdf': { name: 'PowerPoint to PDF', icon: 'bi-file-earmark-slides-fill', desc: 'Convert PowerPoint presentations (.pptx, .ppt) to PDF.', cat: 'convert_to', premium: true },
 };
 
 // Group tools by category for the mega menu
