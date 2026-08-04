@@ -1,0 +1,18 @@
+========================================
+DATABASE ROUTER AUDIT REPORT
+========================================
+File: core/db_routers.py
+
+Routing Class: MediaRouter
+Target App Labels: 'core' -> routed to 'media_db' alias
+Default App Labels: 'accounts', 'documents', 'auth', 'contenttypes', 'sessions', 'sites', 'admin', 'socialaccount' -> routed to 'default' alias
+
+ALLOW RELATION:
+obj1.app_label in ('core',) or obj2.app_label in ('core',) returns True.
+Enables cross-database foreign keys without strict DB constraints (db_constraint=False).
+
+ALLOW MIGRATE:
+'core' app -> db == 'media_db'
+All other apps -> db == 'default'
+
+ROUTER AUDIT STATUS: PASSED
