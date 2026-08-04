@@ -69,22 +69,30 @@ export default function Pricing() {
     if (btn) {
       originalHtml = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Loading QR...';
+      btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Creating Gateway Order...';
     }
 
     try {
-      const res = await axios.post('/accounts/phonepe/pay/', { plan_id: plan.id });
-      setActivePlan(plan);
-      setActiveOrderId(res.data?.order_id || `ORD_${Date.now()}`);
-      setPaymentSuccess(false);
-      setPaymentMessage('');
-      setPaymentModalOpen(true);
+      const res = await axios.post('/accounts/api/payments/create-order/', { plan_id: plan.id });
+      if (res.data && res.data.success) {
+        setActivePlan(plan);
+        setActiveOrderId(res.data.order_id);
+        setPaymentSuccess(false);
+        setPaymentMessage('');
+        
+        // If official gateway checkout URL is returned, open or redirect
+        if (res.data.checkout_url && res.data.checkout_url.startsWith('http')) {
+          window.location.href = res.data.checkout_url;
+          return;
+        }
+        
+        setPaymentModalOpen(true);
+      } else {
+        alert(res.data?.error || 'Order creation failed');
+      }
     } catch (err) {
-      setActivePlan(plan);
-      setActiveOrderId(`ORD_${Date.now()}`);
-      setPaymentSuccess(false);
-      setPaymentMessage('');
-      setPaymentModalOpen(true);
+      console.error('Order creation error:', err);
+      alert('Could not initialize payment gateway order. Please try again.');
     } finally {
       if (btn) {
         btn.disabled = false;
@@ -93,37 +101,29 @@ export default function Pricing() {
     }
   };
 
-  const handleConfirmPayment = async () => {
+  const handleVerifyPayment = async () => {
     setSubmittingPayment(true);
+    setPaymentMessage('Verifying payment with payment gateway...');
     try {
-      const res = await axios.post('/accounts/submit-payment-request/', {
+      const res = await axios.post('/accounts/api/payments/verify/', {
         order_id: activeOrderId
       });
-      if (res.data && res.data.success) {
+      
+      if (res.data && res.data.success && res.data.status === 'SUCCESS') {
         setPaymentSuccess(true);
-        setPaymentMessage(res.data.message || 'Payment confirmed! PRO subscription activated.');
+        setPaymentMessage('Server Verification Confirmed! PRO Activated 🎉');
         if (checkAuthStatus) await checkAuthStatus();
         setTimeout(() => {
           setPaymentModalOpen(false);
-          navigate('/dashboard');
-        }, 1500);
+          navigate(`/accounts/payment-success?order_id=${activeOrderId}`);
+        }, 1200);
       } else {
-        setPaymentSuccess(true);
-        setPaymentMessage('Payment submitted! Activating your PRO account...');
-        if (checkAuthStatus) await checkAuthStatus();
-        setTimeout(() => {
-          setPaymentModalOpen(false);
-          navigate('/dashboard');
-        }, 1500);
+        setPaymentSuccess(false);
+        setPaymentMessage(res.data.error || 'Payment pending gateway confirmation or webhook receipt. Please complete transaction in your app and click verify again.');
       }
     } catch (err) {
-      setPaymentSuccess(true);
-      setPaymentMessage('Payment submitted! Activating your PRO account...');
-      if (checkAuthStatus) await checkAuthStatus();
-      setTimeout(() => {
-        setPaymentModalOpen(false);
-        navigate('/dashboard');
-      }, 1500);
+      setPaymentSuccess(false);
+      setPaymentMessage('Verification check failed. Payment will be automatically updated once webhook arrives.');
     } finally {
       setSubmittingPayment(false);
     }
@@ -389,7 +389,19 @@ export default function Pricing() {
                   Scan the <strong>Locked Amount QR</strong> to auto-fill <strong>₹{activePlan.price}</strong> or scan the <strong>Static PhonePe QR</strong> in any UPI app.
                 </p>
 
-                {/* Confirm Payment Action Button */}
+                <div className="form-check text-start mb-3 bg-light p-2.5 px-3 rounded-3 border">
+                  <input
+                    className="form-check-input mt-0.5 me-2"
+                    type="checkbox"
+                    id="modalTermsCheck"
+                    defaultChecked
+                  />
+                  <label className="form-check-label small text-muted" htmlFor="modalTermsCheck">
+                    I agree to the <Link to="/terms" target="_blank" className="text-primary fw-semibold">Terms & Conditions</Link> and <Link to="/refund-policy" target="_blank" className="text-primary fw-semibold">Refund Policy</Link>.
+                  </label>
+                </div>
+
+                {/* Server Payment Verification Action Button */}
                 {paymentSuccess ? (
                   <div className="alert alert-success border-0 shadow-sm rounded-3 p-3 mb-0 fw-bold d-flex align-items-center justify-content-center">
                     <i className="bi bi-check-circle-fill me-2 fs-5"></i>
@@ -397,24 +409,29 @@ export default function Pricing() {
                   </div>
                 ) : (
                   <div>
+                    {paymentMessage && (
+                      <div className="alert alert-warning border-0 small py-2 mb-2">
+                        {paymentMessage}
+                      </div>
+                    )}
                     <button
                       type="button"
-                      onClick={handleConfirmPayment}
+                      onClick={handleVerifyPayment}
                       disabled={submittingPayment}
-                      className="btn btn-success btn-lg w-100 rounded-pill fw-bold py-3 shadow mb-2"
+                      className="btn btn-primary btn-lg w-100 rounded-pill fw-bold py-3 shadow mb-2"
                     >
                       {submittingPayment ? (
                         <>
-                          <span className="spinner-border spinner-border-sm me-2" role="status"></span> Activating Subscription...
+                          <span className="spinner-border spinner-border-sm me-2" role="status"></span> Verifying Server Payment Status...
                         </>
                       ) : (
                         <>
-                          <i className="bi bi-check-circle-fill me-2 fs-5"></i> I Have Completed Payment (₹{activePlan.price})
+                          <i className="bi bi-shield-check me-2 fs-5"></i> Verify Payment Status (Server Check)
                         </>
                       )}
                     </button>
                     <div className="small text-muted fs-7">
-                      Click above after paying in your UPI app to activate your PRO features.
+                      Payment is automatically verified via Gateway Webhook and Server Status API.
                     </div>
                   </div>
                 )}

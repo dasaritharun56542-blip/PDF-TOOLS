@@ -21,6 +21,10 @@ import ToolDetail from './pages/ToolDetail';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPasswordOtp from './pages/ResetPasswordOtp';
 import ResetPasswordNew from './pages/ResetPasswordNew';
+import TermsAndConditions from './pages/TermsAndConditions';
+import RefundPolicy from './pages/RefundPolicy';
+import PrivacyPolicy from './pages/PrivacyPolicy';
+import Contact from './pages/Contact';
 
 function MainLayout({ children }) {
   return (
@@ -70,6 +74,12 @@ export default function App() {
           <Route path="/dashboard" element={<MainLayout><Dashboard /></MainLayout>} />
           <Route path="/history" element={<MainLayout><History /></MainLayout>} />
           
+          {/* Legal & Policy Pages */}
+          <Route path="/terms" element={<MainLayout><TermsAndConditions /></MainLayout>} />
+          <Route path="/refund-policy" element={<MainLayout><RefundPolicy /></MainLayout>} />
+          <Route path="/privacy-policy" element={<MainLayout><PrivacyPolicy /></MainLayout>} />
+          <Route path="/contact" element={<MainLayout><Contact /></MainLayout>} />
+
           {/* Tool Pages */}
           <Route path="/tool/:toolSlug" element={<MainLayout><ToolDetail /></MainLayout>} />
 

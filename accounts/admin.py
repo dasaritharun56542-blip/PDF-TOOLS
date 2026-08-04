@@ -3,7 +3,8 @@ from django.utils.html import format_html
 from django.urls import reverse
 from .models import (
     Profile, PaymentRecord, AuthLog, Plan, Subscription,
-    Payment, Invoice, DailyUsage, Transaction, WebhookLog, AuditLog, PasswordResetOTP
+    Payment, Invoice, DailyUsage, Transaction, WebhookLog, AuditLog, PasswordResetOTP,
+    RefundRequest, UserConsent
 )
 
 @admin.register(Invoice)
@@ -122,3 +123,34 @@ class AuthLogAdmin(admin.ModelAdmin):
     list_display = ('id', 'user', 'action', 'ip_address', 'timestamp')
     search_fields = ('user__username', 'action')
     list_filter = ('action', 'timestamp')
+
+@admin.register(RefundRequest)
+class RefundRequestAdmin(admin.ModelAdmin):
+    list_display = ('id', 'order_id', 'user', 'email', 'amount', 'get_status_badge', 'created_at', 'refund_reference')
+    search_fields = ('order_id', 'invoice_number', 'user__username', 'user__email', 'reason', 'refund_reference')
+    list_filter = ('status', 'created_at')
+    ordering = ('-created_at',)
+    readonly_fields = ('created_at', 'updated_at')
+
+    def get_status_badge(self, obj):
+        color_map = {
+            'REQUESTED': '#3b82f6',
+            'UNDER_REVIEW': '#f59e0b',
+            'APPROVED': '#10b981',
+            'REJECTED': '#ef4444',
+            'PROCESSING': '#8b5cf6',
+            'REFUNDED': '#059669',
+            'FAILED': '#dc2626',
+            'CANCELLED': '#6b7280'
+        }
+        color = color_map.get(obj.status, '#6b7280')
+        return format_html('<span style="background-color: {}; color: #ffffff; padding: 3px 8px; border-radius: 12px; font-weight: bold; font-size: 11px;">{}</span>', color, obj.status)
+    get_status_badge.short_description = 'Status'
+
+@admin.register(UserConsent)
+class UserConsentAdmin(admin.ModelAdmin):
+    list_display = ('id', 'user', 'consent_type', 'terms_version', 'refund_policy_version', 'ip_address', 'timestamp')
+    search_fields = ('user__username', 'ip_address', 'consent_type')
+    list_filter = ('consent_type', 'terms_version', 'timestamp')
+    ordering = ('-timestamp',)
+

@@ -206,10 +206,23 @@ export default function Signup() {
               </div>
             </div>
 
+            <div className="form-check text-start mb-3 mt-3">
+              <input
+                className="form-check-input mt-0.5 me-2"
+                type="checkbox"
+                id="signupTermsCheck"
+                required
+                defaultChecked
+              />
+              <label className="form-check-label small text-muted" htmlFor="signupTermsCheck">
+                I agree to the <Link to="/terms" target="_blank" className="text-primary fw-semibold">Terms & Conditions</Link> and <Link to="/refund-policy" target="_blank" className="text-primary fw-semibold">Refund Policy</Link>.
+              </label>
+            </div>
+
             <button
               type="submit"
               disabled={submitting}
-              className="btn btn-primary w-100 py-3 mt-3 fw-bold rounded-3"
+              className="btn btn-primary w-100 py-3 mt-1 fw-bold rounded-3"
             >
               {submitting ? 'Creating Account...' : 'Sign Up'}
             </button>

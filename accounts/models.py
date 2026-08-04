@@ -146,16 +146,38 @@ class Subscription(models.Model):
         return f"{self.user.username} - {self.plan.name if self.plan else 'Trial'}"
 
 class Payment(models.Model):
+    STATUS_CHOICES = [
+        ('CREATED', 'Created'),
+        ('PENDING', 'Pending'),
+        ('PROCESSING', 'Processing'),
+        ('SUCCESS', 'Success'),
+        ('FAILED', 'Failed'),
+        ('CANCELLED', 'Cancelled'),
+        ('EXPIRED', 'Expired'),
+        ('REFUNDED', 'Refunded'),
+        ('PARTIALLY_REFUNDED', 'Partially Refunded'),
+    ]
+
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     plan = models.ForeignKey(Plan, on_delete=models.CASCADE, null=True, blank=True)
     order_id = models.CharField(max_length=100, unique=True)
+    gateway_order_id = models.CharField(max_length=100, blank=True, null=True)
+    gateway_payment_id = models.CharField(max_length=100, blank=True, null=True)
+    gateway_name = models.CharField(max_length=50, default='PHONEPE')
     transaction_id = models.CharField(max_length=100, blank=True, null=True)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
-    status = models.CharField(max_length=20, default='pending') # 'pending', 'success', 'failed'
+    currency = models.CharField(max_length=10, default='INR')
+    status = models.CharField(max_length=30, default='CREATED')
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    @property
+    def is_paid(self):
+        return self.status.upper() in ['SUCCESS', 'COMPLETED']
 
     def __str__(self):
         return f"{self.order_id} - {self.status}"
+
 
 class Invoice(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
@@ -265,3 +287,50 @@ class PasswordResetOTP(models.Model):
 
     def __str__(self):
         return f"PasswordResetOTP for {self.user.username} - {self.otp}"
+
+class RefundRequest(models.Model):
+    STATUS_CHOICES = [
+        ('REQUESTED', 'Requested'),
+        ('UNDER_REVIEW', 'Under Review'),
+        ('APPROVED', 'Approved'),
+        ('REJECTED', 'Rejected'),
+        ('PROCESSING', 'Processing'),
+        ('REFUNDED', 'Refunded'),
+        ('FAILED', 'Failed'),
+        ('CANCELLED', 'Cancelled'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='refund_requests')
+    payment = models.ForeignKey(Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name='refund_requests')
+    order_id = models.CharField(max_length=100)
+    invoice_number = models.CharField(max_length=100, blank=True, null=True)
+    email = models.EmailField()
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    reason = models.TextField()
+    status = models.CharField(max_length=30, default='REQUESTED', choices=STATUS_CHOICES)
+    admin_notes = models.TextField(blank=True, null=True)
+    refund_reference = models.CharField(max_length=100, blank=True, null=True)
+    admin_user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='processed_refund_requests')
+    refunded_at = models.DateTimeField(null=True, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"RefundRequest #{self.id} - {self.order_id} ({self.status})"
+
+class UserConsent(models.Model):
+    CONSENT_CHOICES = [
+        ('SIGNUP', 'Signup'),
+        ('CHECKOUT', 'Checkout'),
+    ]
+
+    user = models.ForeignKey(User, on_delete=models.CASCADE, null=True, blank=True, related_name='consents')
+    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    terms_version = models.CharField(max_length=20, default='1.0')
+    refund_policy_version = models.CharField(max_length=20, default='1.0')
+    consent_type = models.CharField(max_length=20, choices=CONSENT_CHOICES)
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"UserConsent ({self.consent_type}) by {self.user.username if self.user else 'Guest'} at {self.timestamp}"
+

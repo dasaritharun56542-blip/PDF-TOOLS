@@ -544,15 +544,35 @@ def api_dashboard_data(request):
                 'total_spent': str(tc['total_spent'])
             })
             
-        recent_payments = Payment.objects.using('default').all().order_by('-created_at')[:20]
+        recent_payments = Payment.objects.using('default').all().order_by('-created_at')[:50]
         recent_txns = []
         for rp in recent_payments:
+            inv_id = None
+            inv_num = None
+            try:
+                inv = rp.invoice
+                inv_id = inv.id
+                inv_num = inv.invoice_number
+            except Exception:
+                pass
+
             recent_txns.append({
+                'id': rp.id,
+                'order_id': rp.order_id,
+                'gateway_order_id': rp.gateway_order_id or rp.order_id,
+                'gateway_payment_id': rp.gateway_payment_id or rp.transaction_id or 'N/A',
                 'username': rp.user.username,
+                'email': rp.user.email,
                 'amount': str(rp.amount),
-                'plan_name': rp.plan.name if rp.plan else 'Premium',
+                'currency': rp.currency,
+                'plan_name': rp.plan.name if rp.plan else 'PRO Plan',
+                'payment_method': rp.gateway_name or 'Airtel Payments Bank Settlement Gateway',
                 'status': rp.status,
-                'created_at': rp.created_at.strftime('%Y-%m-%d %H:%M:%S')
+                'created_at': rp.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                'invoice_id': inv_id,
+                'invoice_number': inv_num,
+                'refund_status': 'REFUNDED' if rp.status == 'REFUNDED' else 'NONE',
+                'webhook_status': 'VERIFIED' if rp.status in ['SUCCESS', 'REFUNDED'] else 'PENDING'
             })
             
         from django.db.models import Count

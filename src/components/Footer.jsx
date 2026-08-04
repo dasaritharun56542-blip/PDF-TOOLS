@@ -34,7 +34,7 @@ export default function Footer() {
 
           <div className="col-md-4 text-center text-md-end">
             <p className="text-dark fw-bold mb-1">© 2026 PDF Powerhouse</p>
-            <p className="text-muted small">
+            <p className="text-muted small mb-0">
               Developed by <span className="text-primary fw-semibold">Dasari Tharun Tej</span>
             </p>
           </div>
@@ -42,18 +42,35 @@ export default function Footer() {
 
         <hr className="my-4 text-muted opacity-25" />
 
-        <div className="d-flex flex-wrap justify-content-center gap-4 small text-muted">
-          <div className="d-flex align-items-center">
-            <i className="bi bi-shield-check text-success me-2"></i>
-            <span>SSL Secured</span>
+        <div className="d-flex flex-wrap justify-content-between align-items-center gap-3 small text-muted">
+          <div className="d-flex flex-wrap gap-4">
+            <Link to="/terms" className="text-muted text-decoration-none hover-primary fw-semibold">
+              Terms & Conditions
+            </Link>
+            <Link to="/refund-policy" className="text-muted text-decoration-none hover-primary fw-semibold">
+              Refund Policy
+            </Link>
+            <Link to="/privacy-policy" className="text-muted text-decoration-none hover-primary fw-semibold">
+              Privacy Policy
+            </Link>
+            <Link to="/contact" className="text-muted text-decoration-none hover-primary fw-semibold">
+              Contact Us
+            </Link>
           </div>
-          <div className="d-flex align-items-center">
-            <i className="bi bi-clock-history text-primary me-2"></i>
-            <span>Auto-Delete (24h)</span>
-          </div>
-          <div className="d-flex align-items-center">
-            <i className="bi bi-lock text-warning me-2"></i>
-            <span>End-to-End Encrypted</span>
+
+          <div className="d-flex flex-wrap gap-4 ms-auto">
+            <div className="d-flex align-items-center">
+              <i className="bi bi-shield-check text-success me-2"></i>
+              <span>SSL Secured</span>
+            </div>
+            <div className="d-flex align-items-center">
+              <i className="bi bi-clock-history text-primary me-2"></i>
+              <span>Auto-Delete (24h)</span>
+            </div>
+            <div className="d-flex align-items-center">
+              <i className="bi bi-lock text-warning me-2"></i>
+              <span>End-to-End Encrypted</span>
+            </div>
           </div>
         </div>
       </div>

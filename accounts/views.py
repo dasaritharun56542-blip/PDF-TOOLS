@@ -11,6 +11,7 @@ from django.contrib.auth.decorators import login_required
 from .forms import CustomUserCreationForm, CustomAuthenticationForm
 from .utils import send_otp_email, send_welcome_email, send_login_notification
 from .models import Profile, AuthLog, Plan, Subscription, Payment, Invoice
+from accounts.services.payment_gateway import payment_gateway_service
 
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
@@ -1020,36 +1021,42 @@ def process_successful_payment(payment, transaction_id=None):
 
 @login_required
 @csrf_exempt
-def phonepe_initiate_payment(request):
+def api_create_payment_order(request):
+    """
+    1. Retrieve official plan from server database (NEVER trust frontend price/amount).
+    2. Create cryptographically secure Order ID (PPH-2026-XXXXXX).
+    3. Generate official gateway checkout URL.
+    """
     if request.method != 'POST':
-        return JsonResponse({'error': 'POST required'}, status=400)
-        
+        return JsonResponse({'error': 'POST method required'}, status=405)
+
     try:
         data = json.loads(request.body)
         plan_id = data.get('plan_id')
-    except:
+    except Exception:
         plan_id = request.POST.get('plan_id')
-        
+
     if not plan_id:
         return JsonResponse({'error': 'plan_id is required'}, status=400)
-        
+
+    # Server-side official plan lookup
     plan_mapping = {
         '1_month': 30,
         '3_months': 90,
         '6_months': 180,
         '1_year': 365
     }
-    
     duration = plan_mapping.get(plan_id)
     plan = None
     if duration:
         plan = Plan.objects.using('default').filter(duration_days=duration).first()
+
     if not plan:
         try:
             plan = Plan.objects.using('default').get(pk=plan_id)
-        except:
+        except Exception:
             plan = None
-            
+
     if not plan:
         plan_info = next((p for p in SUBSCRIPTION_PLANS if p['id'] == plan_id), None)
         if plan_info:
@@ -1062,306 +1069,217 @@ def phonepe_initiate_payment(request):
             )
         else:
             return JsonResponse({'error': 'Invalid subscription plan selected'}, status=400)
-        
-    order_id = f"ORD_{secrets.token_hex(8).upper()}"
-    
-    payment = Payment.objects.using('default').create(
-        user=request.user,
-        plan=plan,
-        order_id=order_id,
-        amount=plan.price,
-        status='pending'
-    )
-    
-    upi_id = os.getenv('UPI_ID', '9110396906@ybl')
-    import urllib.parse
-    upi_link = f"upi://pay?pa={upi_id}&pn=PDFPowerHouse&am={plan.price}&cu=INR&tn={urllib.parse.quote(plan.name)}"
-    qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(upi_link)}"
 
-    payload = {
-        "merchantId": getattr(settings, 'PHONEPE_MERCHANT_ID', 'TEST'),
-        "merchantTransactionId": order_id,
-        "merchantUserId": f"USER_{request.user.id}",
-        "amount": int(plan.price * 100),
-        "redirectUrl": getattr(settings, 'PHONEPE_REDIRECT_URL', 'http://localhost:5173/accounts/payment-success'),
-        "redirectMode": "POST",
-        "callbackUrl": getattr(settings, 'PHONEPE_CALLBACK_URL', 'http://localhost:8000/accounts/phonepe/webhook/'),
-        "paymentInstrument": {
-            "type": "PAY_PAGE"
-        }
-    }
-    
-    try:
-        payload_json = json.dumps(payload)
-        payload_base64 = base64.b64encode(payload_json.encode('utf-8')).decode('utf-8')
-        string_to_hash = payload_base64 + "/pg/v1/pay" + getattr(settings, 'PHONEPE_SALT_KEY', 'TEST_SALT')
-        checksum = hashlib.sha256(string_to_hash.encode('utf-8')).hexdigest()
-        x_verify = f"{checksum}###{getattr(settings, 'PHONEPE_SALT_INDEX', '1')}"
-        
-        headers = {
-            "Content-Type": "application/json",
-            "X-VERIFY": x_verify
-        }
-        url = get_phonepe_url("/pg/v1/pay")
-        response = requests.post(url, json={"request": payload_base64}, headers=headers, timeout=5)
-        resp_data = response.json()
-    except Exception as e:
-        resp_data = {}
-        
-    if resp_data.get('success'):
-        redirect_url = resp_data['data']['instrumentResponse']['redirectInfo']['url']
+    # Use Gateway Service to create order with backend pricing
+    payment = payment_gateway_service.create_order(request.user, plan)
+    checkout_res = payment_gateway_service.create_checkout(payment)
+
+    if checkout_res.get('success'):
         return JsonResponse({
             'success': True,
-            'redirect_url': redirect_url,
-            'order_id': order_id,
+            'order_id': payment.order_id,
             'plan_name': plan.name,
-            'amount': float(plan.price),
-            'upi_id': upi_id,
-            'upi_link': upi_link,
-            'qr_url': qr_url
+            'amount': float(payment.amount),
+            'currency': payment.currency,
+            'checkout_url': checkout_res.get('checkout_url'),
+            'gateway_name': payment.gateway_name
         })
     else:
+        # Fallback payload with backend-secured parameters if gateway sandbox is in fallback mode
         return JsonResponse({
             'success': True,
-            'order_id': order_id,
+            'order_id': payment.order_id,
             'plan_name': plan.name,
-            'amount': float(plan.price),
-            'upi_id': upi_id,
-            'upi_link': upi_link,
-            'qr_url': qr_url
+            'amount': float(payment.amount),
+            'currency': payment.currency,
+            'checkout_url': f"/accounts/payment-checkout/?order_id={payment.order_id}",
+            'gateway_name': payment.gateway_name
         })
 
 @login_required
 @csrf_exempt
+def api_verify_payment(request):
+    """
+    Server-side Payment Verification API.
+    Independently verifies status using Gateway APIs & Webhook status.
+    NEVER relies on client alone.
+    """
+    if request.method not in ['GET', 'POST']:
+        return JsonResponse({'error': 'GET or POST required'}, status=405)
+
+    order_id = request.GET.get('order_id') or request.POST.get('order_id')
+    if not order_id and request.body:
+        try:
+            data = json.loads(request.body)
+            order_id = data.get('order_id')
+        except Exception:
+            pass
+
+    if not order_id:
+        return JsonResponse({'error': 'order_id parameter is required'}, status=400)
+
+    res = payment_gateway_service.verify_payment(order_id)
+    return JsonResponse(res)
+
+@csrf_exempt
+def phonepe_initiate_payment(request):
+    """Alias route for backward compatibility."""
+    return api_create_payment_order(request)
+
+@login_required
+@csrf_exempt
 def submit_payment_request(request):
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST method required'}, status=405)
-        
+    """
+    OBSOLETE / DISALOWED: Manual client-side payment override is disabled.
+    All payments MUST be verified server-side through payment gateway verification APIs / Webhooks.
+    """
+    order_id = None
     try:
         data = json.loads(request.body)
         order_id = data.get('order_id')
     except Exception:
         order_id = request.POST.get('order_id')
-        
-    if not order_id:
-        return JsonResponse({'error': 'order_id is required'}, status=400)
-        
-    try:
-        payment = Payment.objects.using('default').get(order_id=order_id, user=request.user)
-    except Payment.DoesNotExist:
-        return JsonResponse({'error': 'Payment order not found.'}, status=404)
-        
-    ref_number = f"REQ_{secrets.token_hex(4).upper()}"
-    
-    process_successful_payment(payment, f"MANUAL-{ref_number}")
-    
-    try:
-        from accounts.models import AuditLog
-        AuditLog.objects.using('default').create(
-            user=request.user,
-            action='MANUAL_PAYMENT_SUBMITTED',
-            details=f"Payment request submitted for order {order_id}. Ref: {ref_number}"
-        )
-    except Exception:
-        pass
-        
+
+    if order_id:
+        # Trigger server-side verification against payment gateway API
+        res = payment_gateway_service.verify_payment(order_id)
+        if res.get('success') and res.get('status') == 'SUCCESS':
+            return JsonResponse({
+                'success': True,
+                'message': 'Payment verified server-side! PRO Subscription activated.',
+                'order_id': order_id
+            })
+
     return JsonResponse({
-        'success': True,
-        'message': 'Payment Confirmation received! PRO Subscription activated successfully.',
-        'reference_number': ref_number
-    })
+        'success': False,
+        'error': 'Unverified manual payment confirmation rejected. Payment is being verified asynchronously via Gateway Webhook/API.'
+    }, status=400)
 
 @csrf_exempt
 def phonepe_webhook(request):
+    """
+    Official Payment Gateway Webhook Endpoint.
+    Performs cryptographic signature verification & idempotency checks.
+    """
     if request.method != 'POST':
         return HttpResponse("Method not allowed", status=405)
-        
-    raw_body = request.body.decode('utf-8')
-    x_verify = request.headers.get('X-VERIFY')
-    
-    from accounts.models import WebhookLog, Transaction, AuditLog
-    from accounts.utils import send_payment_failed_email
-    from decimal import Decimal
-    
-    webhook_log = WebhookLog.objects.using('default').create(
-        payload=raw_body,
-        headers=str(dict(request.headers)),
-        signature_valid=False,
-        processed=False
-    )
-    
-    try:
-        data = json.loads(request.body)
-        base64_response = data.get('response')
-    except:
-        webhook_log.error_message = "Invalid request body format"
-        webhook_log.save()
-        return HttpResponse("Invalid request body", status=400)
-        
-    if not base64_response or not x_verify:
-        webhook_log.error_message = "Missing base64 response or signature header"
-        webhook_log.save()
-        return HttpResponse("Missing response or signature", status=400)
-        
-    string_to_hash = base64_response + settings.PHONEPE_SALT_KEY
-    checksum = hashlib.sha256(string_to_hash.encode('utf-8')).hexdigest()
-    expected_x_verify = f"{checksum}###{settings.PHONEPE_SALT_INDEX}"
-    
-    if x_verify != expected_x_verify:
-        webhook_log.error_message = "Signature mismatch"
-        webhook_log.save()
-        return HttpResponse("Signature mismatch", status=400)
-        
-    webhook_log.signature_valid = True
-    webhook_log.save()
-    
-    try:
-        decoded_bytes = base64.b64decode(base64_response)
-        resp_payload = json.loads(decoded_bytes.decode('utf-8'))
-    except Exception as e:
-        webhook_log.error_message = f"Invalid base64 payload: {str(e)}"
-        webhook_log.save()
-        return HttpResponse("Invalid base64 payload", status=400)
-        
-    success = resp_payload.get('success')
-    code = resp_payload.get('code')
-    resp_data = resp_payload.get('data', {})
-    order_id = resp_data.get('merchantTransactionId')
-    txn_id = resp_data.get('transactionId')
-    
-    try:
-        payment = Payment.objects.using('default').get(order_id=order_id)
-    except Payment.DoesNotExist:
-        webhook_log.error_message = f"Payment order {order_id} not found"
-        webhook_log.save()
-        return HttpResponse("Payment order not found", status=404)
-        
-    if payment.status == 'success' and code == 'PAYMENT_SUCCESS':
-        webhook_log.processed = True
-        webhook_log.save()
-        return JsonResponse({"status": "OK", "message": "Already processed"})
-        
-    phonepe_paise = resp_data.get('amount')
-    if phonepe_paise:
-        phonepe_amount = Decimal(phonepe_paise) / Decimal('100.00')
-        if abs(phonepe_amount - payment.amount) > Decimal('0.01'):
-            webhook_log.error_message = f"Amount mismatch. PhonePe: {phonepe_amount}, Local order: {payment.amount}"
-            webhook_log.save()
-            
-            AuditLog.objects.using('default').create(
-                user=payment.user,
-                action='FRAUD_ALERT',
-                details=f"Payment amount mismatch for order {order_id}. Webhook specified {phonepe_amount} but order expected {payment.amount}"
-            )
-            return HttpResponse("Amount mismatch", status=400)
 
-    if success and code == 'PAYMENT_SUCCESS':
-        process_successful_payment(payment, txn_id)
-    elif code in ['PAYMENT_ERROR', 'PAYMENT_DECLINED', 'TIMED_OUT']:
-        payment.status = 'failed'
-        if txn_id:
-            payment.transaction_id = txn_id
-        payment.save()
-        
-        Transaction.objects.using('default').create(
-            payment=payment,
-            transaction_id=txn_id or f"TXN-{order_id}",
-            amount=payment.amount,
-            status='failed',
-            payment_method='PhonePe',
-            response_code=code,
-            raw_response=json.dumps(resp_payload)
-        )
-        AuditLog.objects.using('default').create(
-            user=payment.user,
-            action='PAYMENT_FAILED',
-            details=f"Payment failed with code {code} for order {order_id}"
-        )
-        send_payment_failed_email(payment.user, payment)
-    elif code in ['REFUND_SUCCESSFUL', 'REFUND', 'PAYMENT_REFUNDED']:
-        payment.status = 'refunded'
-        payment.save()
-        
-        Subscription.objects.using('default').filter(user=payment.user, plan=payment.plan).update(is_active=False)
-        profile = payment.user.profile
-        profile.is_pro = False
-        profile.save()
-        
-        Transaction.objects.using('default').create(
-            payment=payment,
-            transaction_id=txn_id or f"TXN-{order_id}",
-            amount=payment.amount,
-            status='refunded',
-            payment_method='PhonePe',
-            response_code=code,
-            raw_response=json.dumps(resp_payload)
-        )
-        AuditLog.objects.using('default').create(
-            user=payment.user,
-            action='PAYMENT_REFUNDED',
-            details=f"Payment refunded with code {code} for order {order_id}. Premium features disabled."
-        )
-        subject = "Subscription Refunded - PDF Powerhouse"
-        body = f"Hello {payment.user.username},\n\nYour payment for the subscription order {order_id} has been refunded successfully. Your premium features have been deactivated.\n\nThank you,\nPDF Powerhouse Team"
-        try:
-            from accounts.utils import send_email_robust
-            send_email_robust(subject, body, payment.user.email)
-        except:
-            pass
-            
-    webhook_log.processed = True
-    webhook_log.save()
-    return JsonResponse({"status": "OK"})
+    raw_body = request.body.decode('utf-8')
+    headers = dict(request.headers)
+
+    res = payment_gateway_service.handle_webhook(raw_body, headers)
+    status_code = res.get('status_code', 200)
+    
+    if res.get('success'):
+        return JsonResponse(res, status=status_code)
+    else:
+        return HttpResponse(res.get('error', 'Webhook error'), status=status_code)
 
 @csrf_exempt
 def phonepe_redirect_callback(request):
-    order_id = None
-    if request.method == 'POST':
-        order_id = request.POST.get('transactionId') or request.POST.get('merchantTransactionId')
-    else:
-        order_id = request.GET.get('transactionId') or request.GET.get('merchantTransactionId')
-        
-    if not order_id:
+    """
+    Payment Gateway Return / Redirect Callback.
+    Executes server-side status verification before updating UI.
+    """
+    order_id = request.GET.get('order_id') or request.POST.get('merchantTransactionId') or request.POST.get('transactionId')
+    
+    if not order_id and request.body:
         try:
-            body = request.POST.get('response', '')
-            if body:
-                decoded = json.loads(base64.b64decode(body).decode('utf-8'))
+            body_data = request.POST.get('response', '')
+            if body_data:
+                import base64
+                decoded = json.loads(base64.b64decode(body_data).decode('utf-8'))
                 order_id = decoded.get('data', {}).get('merchantTransactionId')
-        except:
+        except Exception:
             pass
-            
-    if not order_id:
-        return HttpResponse("Transaction ID not provided.", status=400)
-        
-    try:
-        payment = Payment.objects.using('default').get(order_id=order_id)
-    except Payment.DoesNotExist:
-        return HttpResponse("Payment order not found.", status=404)
-        
-    txn_status = check_phonepe_txn_status(order_id)
-    if txn_status and txn_status.get('success') and txn_status.get('code') == 'PAYMENT_SUCCESS':
-        txn_id = txn_status.get('data', {}).get('transactionId')
-        process_successful_payment(payment, txn_id)
-    else:
-        if txn_status:
-            payment.status = 'failed'
-            payment.save()
-            
-    redirect_url = f"{settings.PHONEPE_REDIRECT_URL}?order_id={order_id}"
-    return HttpResponseRedirect(redirect_url)
+
+    if order_id:
+        payment_gateway_service.verify_payment(order_id)
+        redirect_base = getattr(settings, 'PHONEPE_REDIRECT_URL', 'http://localhost:5174/accounts/payment-success')
+        sep = '&' if '?' in redirect_base else '?'
+        return HttpResponseRedirect(f"{redirect_base}{sep}order_id={order_id}")
+
+    return HttpResponseRedirect('/accounts/payment-success')
 
 @login_required
 def payment_status_api(request, order_id):
+    """
+    Fetch current server payment status and invoice info for frontend display.
+    """
     try:
         payment = Payment.objects.using('default').get(order_id=order_id, user=request.user)
+        
+        # Auto-trigger verification if payment is still pending
+        if payment.status in ['PENDING', 'CREATED']:
+            payment_gateway_service.verify_payment(order_id)
+            payment.refresh_from_db()
+
+        invoice_id = None
+        invoice_number = None
+        try:
+            inv = payment.invoice
+            invoice_id = inv.id
+            invoice_number = inv.invoice_number
+        except Exception:
+            pass
+
+        expiry_date_str = None
+        if payment.user.profile.pro_expiry:
+            expiry_date_str = payment.user.profile.pro_expiry.strftime('%Y-%m-%d %H:%M:%S')
+
         return JsonResponse({
             'success': True,
+            'order_id': payment.order_id,
+            'transaction_id': payment.transaction_id or payment.gateway_payment_id,
             'status': payment.status,
-            'amount': payment.amount,
-            'plan_name': payment.plan.name if payment.plan else 'Premium'
+            'amount': str(payment.amount),
+            'currency': payment.currency,
+            'plan_name': payment.plan.name if payment.plan else 'PRO Plan',
+            'expiry_date': expiry_date_str,
+            'invoice_id': invoice_id,
+            'invoice_number': invoice_number
         })
     except Payment.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Payment record not found'}, status=404)
+
+@login_required
+def api_admin_refund_payment(request, payment_id):
+    """
+    Admin control to initiate refund via payment gateway API.
+    Audited with Admin ID, timestamp, and reason.
+    """
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Unauthorized admin action'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST method required'}, status=405)
+
+    try:
+        payment = Payment.objects.using('default').get(pk=payment_id)
+    except Payment.DoesNotExist:
+        return JsonResponse({'error': 'Payment not found'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+        reason = data.get('reason', f'Admin refund by {request.user.username}')
+        amount = data.get('amount')
+    except Exception:
+        reason = f'Admin refund by {request.user.username}'
+        amount = None
+
+    res = payment_gateway_service.refund_payment(payment, amount=amount, reason=reason)
+
+    if res.get('success'):
+        from accounts.models import AuditLog
+        AuditLog.objects.using('default').create(
+            user=request.user,
+            action='ADMIN_INITIATED_REFUND',
+            details=f"Admin {request.user.username} (ID: {request.user.id}) initiated refund for order {payment.order_id}. Reason: {reason}"
+        )
+        return JsonResponse(res)
+    else:
+        return JsonResponse(res, status=400)
+
 
 @login_required
 def download_invoice(request, invoice_id):
@@ -1550,3 +1468,316 @@ def api_confirm_password_reset(request):
         'success': True,
         'message': 'Password has been updated successfully. You can now log in with your new password.'
     })
+
+
+def api_get_legal_config(request):
+    """
+    Returns legal document configuration, versioning, effective dates,
+    contact details, and current dynamic plan pricing.
+    """
+    from .models import Plan, RefundRequest, UserConsent
+    
+    db_plans = Plan.objects.using('default').all().order_by('price')
+    plans_list = []
+    if db_plans.exists():
+        for p in db_plans:
+            plans_list.append({
+                'id': f"{p.duration_days}_days",
+                'name': p.name,
+                'price': float(p.price),
+                'duration_days': p.duration_days,
+                'currency': 'INR'
+            })
+    else:
+        plans_list = [
+            {'id': '1_month', 'name': '1 Month Pro', 'price': 99.00, 'duration_days': 30, 'currency': 'INR'},
+            {'id': '3_months', 'name': '3 Months Pro', 'price': 230.00, 'duration_days': 90, 'currency': 'INR'},
+            {'id': '6_months', 'name': '6 Months Pro', 'price': 530.00, 'duration_days': 180, 'currency': 'INR'},
+            {'id': '1_year', 'name': '1 Year Pro', 'price': 999.00, 'duration_days': 365, 'currency': 'INR'},
+        ]
+
+    return JsonResponse({
+        'success': True,
+        'business': {
+            'name': 'PDF Powerhouse',
+            'legal_name': 'PDF Powerhouse Inc.',
+            'support_email': 'support@pdfpowerhouse.com',
+            'contact_email': 'contact@pdfpowerhouse.com',
+            'address': 'Hyderabad, Telangana 500081, India',
+            'country': 'India',
+            'governing_law': 'Laws of the Republic of India (Hyderabad Jurisdiction)'
+        },
+        'versioning': {
+            'terms_version': '1.0',
+            'refund_policy_version': '1.0',
+            'privacy_policy_version': '1.0',
+            'effective_date': 'August 4, 2026',
+            'last_updated': 'August 4, 2026'
+        },
+        'plans': plans_list
+    })
+
+
+@login_required
+@csrf_exempt
+def api_submit_refund_request(request):
+    """
+    Authenticated endpoint for users to formally request a refund.
+    Validates Order ID and records RefundRequest.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST method required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    order_id = str(data.get('order_id', '')).strip()
+    reason = str(data.get('reason', '')).strip()
+    invoice_number = str(data.get('invoice_number', '')).strip()
+
+    if not order_id or not reason:
+        return JsonResponse({'error': 'Order ID and reason for refund request are required.'}, status=400)
+
+    from .models import Payment, RefundRequest, AuditLog
+
+    # Check if payment belongs to user
+    try:
+        payment = Payment.objects.using('default').get(order_id=order_id, user=request.user)
+    except Payment.DoesNotExist:
+        return JsonResponse({'error': 'No matching paid order found for your account with this Order ID.'}, status=404)
+
+    # Check if a request already exists for this order
+    existing_req = RefundRequest.objects.using('default').filter(order_id=order_id, user=request.user).first()
+    if existing_req:
+        return JsonResponse({
+            'success': True,
+            'message': f'A refund request for order {order_id} has already been submitted and is currently {existing_req.status}.',
+            'refund_request_id': existing_req.id,
+            'status': existing_req.status
+        })
+
+    refund_req = RefundRequest.objects.using('default').create(
+        user=request.user,
+        payment=payment,
+        order_id=order_id,
+        invoice_number=invoice_number or (payment.invoice.invoice_number if hasattr(payment, 'invoice') else ''),
+        email=request.user.email,
+        amount=payment.amount,
+        reason=reason,
+        status='REQUESTED'
+    )
+
+    AuditLog.objects.using('default').create(
+        user=request.user,
+        action='REFUND_REQUEST_SUBMITTED',
+        details=f"User {request.user.username} submitted refund request #{refund_req.id} for order {order_id}. Amount: ₹{payment.amount}"
+    )
+
+    return JsonResponse({
+        'success': True,
+        'message': f'Your refund request for order {order_id} has been submitted successfully (ID: #{refund_req.id}). Our compliance team will review your request within 2-3 business days.',
+        'refund_request_id': refund_req.id,
+        'status': refund_req.status,
+        'amount': str(payment.amount),
+        'created_at': refund_req.created_at.strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+
+@login_required
+def api_get_my_refund_requests(request):
+    """
+    Fetch all refund requests submitted by the logged-in user.
+    """
+    from .models import RefundRequest
+    requests_qs = RefundRequest.objects.using('default').filter(user=request.user).order_by('-created_at')
+    
+    req_list = []
+    for r in requests_qs:
+        req_list.append({
+            'id': r.id,
+            'order_id': r.order_id,
+            'invoice_number': r.invoice_number,
+            'amount': str(r.amount),
+            'reason': r.reason,
+            'status': r.status,
+            'admin_notes': r.admin_notes,
+            'refund_reference': r.refund_reference,
+            'created_at': r.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'updated_at': r.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+    return JsonResponse({
+        'success': True,
+        'refund_requests': req_list
+    })
+
+
+@csrf_exempt
+def api_record_user_consent(request):
+    """
+    Records user consent to Terms & Conditions and Refund Policy.
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST method required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    consent_type = data.get('consent_type', 'SIGNUP')
+    terms_version = data.get('terms_version', '1.0')
+    refund_version = data.get('refund_policy_version', '1.0')
+
+    from .models import UserConsent
+    
+    user = request.user if request.user.is_authenticated else None
+    
+    # Extract Client IP
+    x_forwarded = request.META.get('HTTP_X_FORWARDED_FOR')
+    ip = x_forwarded.split(',')[0] if x_forwarded else request.META.get('REMOTE_ADDR')
+
+    consent = UserConsent.objects.using('default').create(
+        user=user,
+        ip_address=ip,
+        terms_version=terms_version,
+        refund_policy_version=refund_version,
+        consent_type=consent_type
+    )
+
+    return JsonResponse({
+        'success': True,
+        'consent_id': consent.id,
+        'timestamp': consent.timestamp.strftime('%Y-%m-%d %H:%M:%S')
+    })
+
+
+@login_required
+def api_admin_get_refund_requests(request):
+    """
+    Admin control endpoint to query and filter all user refund requests.
+    """
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Unauthorized admin access'}, status=403)
+
+    from .models import RefundRequest
+    
+    status_filter = request.GET.get('status')
+    search_q = request.GET.get('search', '').strip()
+
+    qs = RefundRequest.objects.using('default').all().order_by('-created_at')
+    if status_filter:
+        qs = qs.filter(status=status_filter)
+    if search_q:
+        from django.db.models import Q
+        qs = qs.filter(Q(order_id__icontains=search_q) | Q(email__icontains=search_q) | Q(user__username__icontains=search_q))
+
+    results = []
+    for r in qs[:100]:
+        results.append({
+            'id': r.id,
+            'order_id': r.order_id,
+            'username': r.user.username,
+            'email': r.email,
+            'invoice_number': r.invoice_number,
+            'amount': str(r.amount),
+            'reason': r.reason,
+            'status': r.status,
+            'admin_notes': r.admin_notes,
+            'refund_reference': r.refund_reference,
+            'created_at': r.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+            'updated_at': r.updated_at.strftime('%Y-%m-%d %H:%M:%S')
+        })
+
+    return JsonResponse({
+        'success': True,
+        'count': len(results),
+        'refund_requests': results
+    })
+
+
+@login_required
+@csrf_exempt
+def api_admin_process_refund_request(request, request_id):
+    """
+    Admin control endpoint to approve, reject, or process a refund request.
+    If approved, automatically invokes payment gateway refund.
+    """
+    if not (request.user.is_superuser or request.user.is_staff):
+        return JsonResponse({'error': 'Unauthorized admin action'}, status=403)
+
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST method required'}, status=405)
+
+    from .models import RefundRequest, AuditLog
+    try:
+        req_obj = RefundRequest.objects.using('default').get(pk=request_id)
+    except RefundRequest.DoesNotExist:
+        return JsonResponse({'error': 'Refund request not found'}, status=404)
+
+    try:
+        data = json.loads(request.body)
+    except Exception:
+        data = request.POST
+
+    action = data.get('action') # 'APPROVE', 'REJECT', 'UNDER_REVIEW'
+    notes = data.get('notes', '')
+
+    if action == 'REJECT':
+        req_obj.status = 'REJECTED'
+        req_obj.admin_notes = notes or 'Request reviewed and rejected by compliance team.'
+        req_obj.admin_user = request.user
+        req_obj.save()
+
+        AuditLog.objects.using('default').create(
+            user=request.user,
+            action='ADMIN_REJECTED_REFUND_REQUEST',
+            details=f"Admin {request.user.username} rejected refund request #{req_obj.id} for order {req_obj.order_id}"
+        )
+        return JsonResponse({'success': True, 'status': 'REJECTED', 'message': 'Refund request rejected.'})
+
+    elif action == 'UNDER_REVIEW':
+        req_obj.status = 'UNDER_REVIEW'
+        req_obj.admin_notes = notes
+        req_obj.admin_user = request.user
+        req_obj.save()
+        return JsonResponse({'success': True, 'status': 'UNDER_REVIEW', 'message': 'Status updated to Under Review.'})
+
+    elif action == 'APPROVE':
+        req_obj.status = 'APPROVED'
+        req_obj.admin_notes = notes or 'Approved for gateway refund.'
+        req_obj.admin_user = request.user
+        req_obj.save()
+
+        # Trigger gateway refund if payment object exists
+        if req_obj.payment:
+            from accounts.services.payment_gateway import payment_gateway_service
+            res = payment_gateway_service.refund_payment(req_obj.payment, amount=float(req_obj.amount), reason=notes or "Admin approved refund request")
+            if res.get('success'):
+                req_obj.status = 'REFUNDED'
+                req_obj.refund_reference = res.get('refund_id', f"REF-{req_obj.order_id}")
+                req_obj.refunded_at = timezone.now()
+                req_obj.save()
+
+                AuditLog.objects.using('default').create(
+                    user=request.user,
+                    action='ADMIN_APPROVED_REFUND_REQUEST',
+                    details=f"Admin {request.user.username} approved refund request #{req_obj.id}. Refund reference: {req_obj.refund_reference}"
+                )
+                return JsonResponse({'success': True, 'status': 'REFUNDED', 'message': 'Refund request approved and gateway refund executed successfully.'})
+            else:
+                req_obj.status = 'FAILED'
+                req_obj.admin_notes = f"Gateway refund failed: {res.get('error')}"
+                req_obj.save()
+                return JsonResponse({'success': False, 'status': 'FAILED', 'error': res.get('error')}, status=400)
+        else:
+            req_obj.status = 'REFUNDED'
+            req_obj.refund_reference = f"MANUAL-REF-{req_obj.order_id}"
+            req_obj.refunded_at = timezone.now()
+            req_obj.save()
+            return JsonResponse({'success': True, 'status': 'REFUNDED', 'message': 'Refund request approved and marked refunded.'})
+
+    return JsonResponse({'error': 'Invalid action specified. Must be APPROVE, REJECT, or UNDER_REVIEW'}, status=400)
+

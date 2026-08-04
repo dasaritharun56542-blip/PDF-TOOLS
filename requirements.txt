@@ -17,3 +17,7 @@ redis==5.0.1
 requests==2.32.3
 django-cors-headers
 djangorestframework
+docx2pdf>=0.1.8
+pywin32>=306
+python-docx>=1.0.0
+

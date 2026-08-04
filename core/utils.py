@@ -529,10 +529,8 @@ class PDFProcessor:
         return res_path, res_name
 
     def process_word_to_pdf(self, files, options):
-        """Convert Word document (.docx, .doc) to PDF using Microsoft Word rendering engine."""
-        import pythoncom, tempfile
-        from docx2pdf import convert
-
+        """Convert Word document (.docx, .doc) to PDF with MS Word and python-docx fallback engines."""
+        import tempfile
         orig_name = options.get('original_name', 'document.docx')
         ext = os.path.splitext(orig_name)[1].lower()
         if ext not in ['.docx', '.doc']:
@@ -550,14 +548,59 @@ class PDFProcessor:
             with open(temp_input, 'wb') as tf:
                 tf.write(file_bytes)
 
-            pythoncom.CoInitialize()
-            try:
-                convert(temp_input, out_path)
-            finally:
-                pythoncom.CoUninitialize()
+            converted_success = False
 
-            if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
-                raise Exception("Microsoft Word failed to generate PDF output.")
+            # Primary Engine: docx2pdf via MS Word COM
+            try:
+                import pythoncom
+                from docx2pdf import convert
+                pythoncom.CoInitialize()
+                try:
+                    convert(temp_input, out_path)
+                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                        converted_success = True
+                finally:
+                    pythoncom.CoUninitialize()
+            except Exception as com_err:
+                pass
+
+            # Fallback Engine: python-docx + ReportLab
+            if not converted_success:
+                try:
+                    import docx
+                    from reportlab.lib.pagesizes import letter
+                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+                    from reportlab.lib import colors
+
+                    doc = docx.Document(temp_input)
+                    pdf_doc = SimpleDocTemplate(out_path, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
+                    story = []
+                    styles = getSampleStyleSheet()
+
+                    heading_style = ParagraphStyle('DocHeading', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#0f172a'))
+                    body_style = ParagraphStyle('DocBody', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#334155'))
+
+                    for p in doc.paragraphs:
+                        text = p.text.strip()
+                        if text:
+                            if p.style.name.startswith('Heading'):
+                                story.append(Paragraph(text, heading_style))
+                            else:
+                                story.append(Paragraph(text, body_style))
+                            story.append(Spacer(1, 6))
+
+                    if not story:
+                        story.append(Paragraph("Converted Document", heading_style))
+
+                    pdf_doc.build(story)
+                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
+                        converted_success = True
+                except Exception as docx_err:
+                    raise Exception(f"Word conversion failed: {str(docx_err)}")
+
+            if not converted_success or not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
+                raise Exception("Failed to generate PDF output from Word document.")
 
             return f"processed/{out_name}", self.get_display_name(options, "document.pdf", "pdf")
         except Exception as e:
