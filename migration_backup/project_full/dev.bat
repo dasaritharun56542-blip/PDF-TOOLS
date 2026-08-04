@@ -1,0 +1,6 @@
+@echo off
+echo Starting PDF Tools Power House Backend...
+start "Django Backend" cmd /k "venv_win\Scripts\python manage.py runserver"
+
+echo Starting Vite Frontend...
+start "Vite Frontend" cmd /k "npm run dev"

@@ -1,0 +1,24 @@
+/* Professional Navbar Styles */
+.navbar-nav .nav-link {
+    color: #000000 !important;
+    font-weight: 700 !important;
+    transition: color 0.2s ease;
+    text-shadow: none !important;
+}
+
+.navbar-nav .nav-link:hover {
+    color: #4f46e5 !important;
+    text-shadow: none !important;
+    background: transparent !important;
+    transform: none !important;
+}
+
+/* Remove any glow or neon effects from icons in navbar */
+.navbar-nav .nav-link:hover i {
+    text-shadow: none !important;
+    transform: none !important;
+}
+
+.navbar-nav .nav-link::after {
+    display: none !important;
+}

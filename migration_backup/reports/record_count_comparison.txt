@@ -1,0 +1,11 @@
+RECORD COUNT COMPARISON:
+  User: SQLite 32 | PG 32
+  Profile: SQLite 32 | PG 32
+  Plan: SQLite 8 | PG 8
+  Subscription: SQLite 36 | PG 36
+  Payment: SQLite 53 | PG 53
+  Invoice: SQLite 11 | PG 11
+  UploadedFile: SQLite 297 | PG 297
+  ProcessedFile: SQLite 268 | PG 268
+
+Mismatches: 0

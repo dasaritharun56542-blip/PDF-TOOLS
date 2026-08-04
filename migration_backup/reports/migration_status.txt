@@ -1,0 +1,61 @@
+account
+ [X] 0001_initial
+ [X] 0002_email_max_length
+ [X] 0003_alter_emailaddress_create_unique_verified_email
+ [X] 0004_alter_emailaddress_drop_unique_email
+ [X] 0005_emailaddress_idx_upper_email
+ [X] 0006_emailaddress_lower
+ [X] 0007_emailaddress_idx_email
+ [X] 0008_emailaddress_unique_primary_email_fixup
+ [X] 0009_emailaddress_unique_primary_email
+accounts
+ [X] 0001_initial
+ [X] 0002_profile_otp_attempts
+ [X] 0003_plan_payment_invoice_subscription_dailyusage
+ [X] 0004_subscriptionplan_webhooklog_and_more
+ [X] 0005_alter_profile_otp
+ [X] 0006_passwordresetotp
+ [X] 0007_payment_currency_payment_gateway_name_and_more
+ [X] 0008_refundrequest_userconsent
+admin
+ [X] 0001_initial
+ [X] 0002_logentry_remove_auto_add
+ [X] 0003_logentry_add_action_flag_choices
+auth
+ [X] 0001_initial
+ [X] 0002_alter_permission_name_max_length
+ [X] 0003_alter_user_email_max_length
+ [X] 0004_alter_user_username_opts
+ [X] 0005_alter_user_last_login_null
+ [X] 0006_require_contenttypes_0002
+ [X] 0007_alter_validators_add_error_messages
+ [X] 0008_alter_user_username_max_length
+ [X] 0009_alter_user_last_name_max_length
+ [X] 0010_alter_group_name_max_length
+ [X] 0011_update_proxy_permissions
+ [X] 0012_alter_user_first_name_max_length
+contenttypes
+ [X] 0001_initial
+ [X] 0002_remove_content_type_name
+core
+ [X] 0001_initial
+ [X] 0002_remove_processedfile_user_id_and_more
+ [X] 0003_alter_downloadhistory_user_alter_processedfile_user_and_more
+ [X] 0004_alter_downloadhistory_user_alter_processedfile_user_and_more
+ [X] 0005_toolusagelog_duration_seconds
+ [X] 0006_processedfile_checksum_processedfile_file_size_and_more
+documents
+ [X] 0001_initial
+sessions
+ [X] 0001_initial
+sites
+ [X] 0001_initial
+ [X] 0002_alter_domain_unique
+socialaccount
+ [X] 0001_initial
+ [X] 0002_token_max_lengths
+ [X] 0003_extra_data_default_dict
+ [X] 0004_app_provider_id_settings
+ [X] 0005_socialtoken_nullable_app
+ [X] 0006_alter_socialaccount_extra_data
+

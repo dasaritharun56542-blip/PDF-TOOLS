@@ -1,0 +1,7 @@
+SHA256 (db.sqlite3):                26c72a981f2ab089ababc0a0c569494e4ccc150713a62770f6e7c5237793c51d
+SHA256 (backup db.sqlite3):         26c72a981f2ab089ababc0a0c569494e4ccc150713a62770f6e7c5237793c51d
+Match: True
+
+SHA256 (media_db.sqlite3):          63882f0094a936876c9464a86f65a34b2f20edfc082734468c92cfa58b4119fa
+SHA256 (backup media_db.sqlite3):   63882f0094a936876c9464a86f65a34b2f20edfc082734468c92cfa58b4119fa
+Match: True

@@ -1,0 +1,532 @@
+Database [default] Tables (37):
+  Table: django_migrations (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - app (varchar(255)) NOT NULL PK=0
+    - name (varchar(255)) NOT NULL PK=0
+    - applied (datetime) NOT NULL PK=0
+  Table: sqlite_sequence (2 columns)
+    - name () NULL PK=0
+    - seq () NULL PK=0
+  Table: auth_group_permissions (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - group_id (INTEGER) NOT NULL PK=0
+    - permission_id (INTEGER) NOT NULL PK=0
+  Table: auth_user_groups (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - user_id (INTEGER) NOT NULL PK=0
+    - group_id (INTEGER) NOT NULL PK=0
+  Table: auth_user_user_permissions (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - user_id (INTEGER) NOT NULL PK=0
+    - permission_id (INTEGER) NOT NULL PK=0
+  Table: account_emailconfirmation (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - created (datetime) NOT NULL PK=0
+    - sent (datetime) NULL PK=0
+    - key (varchar(64)) NOT NULL PK=0
+    - email_address_id (INTEGER) NOT NULL PK=0
+  Table: account_emailaddress (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - verified (bool) NOT NULL PK=0
+    - primary (bool) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - email (varchar(254)) NOT NULL PK=0
+  Table: django_admin_log (8 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - object_id (TEXT) NULL PK=0
+    - object_repr (varchar(200)) NOT NULL PK=0
+    - action_flag (smallint unsigned) NOT NULL PK=0
+    - change_message (TEXT) NOT NULL PK=0
+    - content_type_id (INTEGER) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - action_time (datetime) NOT NULL PK=0
+  Table: django_content_type (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - app_label (varchar(100)) NOT NULL PK=0
+    - model (varchar(100)) NOT NULL PK=0
+  Table: auth_permission (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - content_type_id (INTEGER) NOT NULL PK=0
+    - codename (varchar(100)) NOT NULL PK=0
+    - name (varchar(255)) NOT NULL PK=0
+  Table: auth_group (2 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(150)) NOT NULL PK=0
+  Table: auth_user (11 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - password (varchar(128)) NOT NULL PK=0
+    - last_login (datetime) NULL PK=0
+    - is_superuser (bool) NOT NULL PK=0
+    - username (varchar(150)) NOT NULL PK=0
+    - last_name (varchar(150)) NOT NULL PK=0
+    - email (varchar(254)) NOT NULL PK=0
+    - is_staff (bool) NOT NULL PK=0
+    - is_active (bool) NOT NULL PK=0
+    - date_joined (datetime) NOT NULL PK=0
+    - first_name (varchar(150)) NOT NULL PK=0
+  Table: django_session (3 columns)
+    - session_key (varchar(40)) NOT NULL PK=1
+    - session_data (TEXT) NOT NULL PK=0
+    - expire_date (datetime) NOT NULL PK=0
+  Table: django_site (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(50)) NOT NULL PK=0
+    - domain (varchar(100)) NOT NULL PK=0
+  Table: socialaccount_socialapp_sites (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - socialapp_id (INTEGER) NOT NULL PK=0
+    - site_id (INTEGER) NOT NULL PK=0
+  Table: socialaccount_socialapp (8 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - provider (varchar(30)) NOT NULL PK=0
+    - name (varchar(40)) NOT NULL PK=0
+    - client_id (varchar(191)) NOT NULL PK=0
+    - secret (varchar(191)) NOT NULL PK=0
+    - key (varchar(191)) NOT NULL PK=0
+    - provider_id (varchar(200)) NOT NULL PK=0
+    - settings (TEXT) NOT NULL PK=0
+  Table: socialaccount_socialtoken (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - token (TEXT) NOT NULL PK=0
+    - token_secret (TEXT) NOT NULL PK=0
+    - expires_at (datetime) NULL PK=0
+    - account_id (INTEGER) NOT NULL PK=0
+    - app_id (INTEGER) NULL PK=0
+  Table: socialaccount_socialaccount (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - provider (varchar(200)) NOT NULL PK=0
+    - uid (varchar(191)) NOT NULL PK=0
+    - last_login (datetime) NOT NULL PK=0
+    - date_joined (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - extra_data (TEXT) NOT NULL PK=0
+  Table: accounts_authlog (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - action (varchar(10)) NOT NULL PK=0
+    - timestamp (datetime) NOT NULL PK=0
+    - ip_address (char(39)) NULL PK=0
+    - user_agent (varchar(255)) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_paymentrecord (9 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - amount (decimal) NOT NULL PK=0
+    - currency (varchar(10)) NOT NULL PK=0
+    - plan_name (varchar(50)) NOT NULL PK=0
+    - payment_method (varchar(20)) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - transaction_id (varchar(100)) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_plan (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(50)) NOT NULL PK=0
+    - price (decimal) NOT NULL PK=0
+    - duration_days (INTEGER) NOT NULL PK=0
+  Table: accounts_invoice (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - invoice_number (varchar(50)) NOT NULL PK=0
+    - pdf_file (varchar(100)) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - payment_id (bigint) NOT NULL PK=0
+  Table: accounts_dailyusage (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - date (date) NOT NULL PK=0
+    - processing_time_seconds (INTEGER) NOT NULL PK=0
+    - upload_count (INTEGER) NOT NULL PK=0
+    - download_count (INTEGER) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_subscriptionplan (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(50)) NOT NULL PK=0
+    - price (decimal) NOT NULL PK=0
+    - duration_days (INTEGER) NOT NULL PK=0
+  Table: accounts_webhooklog (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - received_at (datetime) NOT NULL PK=0
+    - payload (TEXT) NOT NULL PK=0
+    - headers (TEXT) NULL PK=0
+    - signature_valid (bool) NOT NULL PK=0
+    - processed (bool) NOT NULL PK=0
+    - error_message (TEXT) NULL PK=0
+  Table: accounts_subscription (8 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - start_date (datetime) NOT NULL PK=0
+    - end_date (datetime) NOT NULL PK=0
+    - is_active (bool) NOT NULL PK=0
+    - plan_id (bigint) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - expired_alert_sent (bool) NOT NULL PK=0
+    - expiring_alert_sent (bool) NOT NULL PK=0
+  Table: accounts_auditlog (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - action (varchar(100)) NOT NULL PK=0
+    - details (TEXT) NULL PK=0
+    - ip_address (char(39)) NULL PK=0
+    - timestamp (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+  Table: accounts_processingtime (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - date (date) NOT NULL PK=0
+    - duration_seconds (INTEGER) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_toolusage (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - tool_name (varchar(50)) NOT NULL PK=0
+    - use_count (INTEGER) NOT NULL PK=0
+    - last_used (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+  Table: accounts_transaction (9 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - transaction_id (varchar(100)) NOT NULL PK=0
+    - amount (decimal) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - payment_method (varchar(50)) NULL PK=0
+    - response_code (varchar(50)) NULL PK=0
+    - raw_response (TEXT) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - payment_id (bigint) NOT NULL PK=0
+  Table: accounts_usagehistory (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - date (date) NOT NULL PK=0
+    - tool_name (varchar(50)) NOT NULL PK=0
+    - processing_time_seconds (INTEGER) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_profile (11 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - otp_created_at (datetime) NULL PK=0
+    - is_verified (bool) NOT NULL PK=0
+    - is_pro (bool) NOT NULL PK=0
+    - pro_expiry (datetime) NULL PK=0
+    - trial_used (bool) NOT NULL PK=0
+    - stripe_customer_id (varchar(100)) NULL PK=0
+    - subscription_id (varchar(100)) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - otp_attempts (INTEGER) NOT NULL PK=0
+    - otp (varchar(255)) NULL PK=0
+  Table: documents_rendereddocument (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - original_file (varchar(100)) NOT NULL PK=0
+    - pdf_output (varchar(100)) NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+  Table: accounts_passwordresetotp (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - otp (varchar(10)) NOT NULL PK=0
+    - reset_token (varchar(100)) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - attempts (INTEGER) NOT NULL PK=0
+    - is_used (bool) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_payment (13 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - order_id (varchar(100)) NOT NULL PK=0
+    - transaction_id (varchar(100)) NULL PK=0
+    - amount (decimal) NOT NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - plan_id (bigint) NULL PK=0
+    - currency (varchar(10)) NOT NULL PK=0
+    - gateway_name (varchar(50)) NOT NULL PK=0
+    - gateway_order_id (varchar(100)) NULL PK=0
+    - gateway_payment_id (varchar(100)) NULL PK=0
+    - updated_at (datetime) NOT NULL PK=0
+    - status (varchar(30)) NOT NULL PK=0
+  Table: accounts_refundrequest (15 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - order_id (varchar(100)) NOT NULL PK=0
+    - invoice_number (varchar(100)) NULL PK=0
+    - email (varchar(254)) NOT NULL PK=0
+    - amount (decimal) NOT NULL PK=0
+    - reason (TEXT) NOT NULL PK=0
+    - status (varchar(30)) NOT NULL PK=0
+    - admin_notes (TEXT) NULL PK=0
+    - refund_reference (varchar(100)) NULL PK=0
+    - refunded_at (datetime) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - updated_at (datetime) NOT NULL PK=0
+    - admin_user_id (INTEGER) NULL PK=0
+    - payment_id (bigint) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_userconsent (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - ip_address (char(39)) NULL PK=0
+    - terms_version (varchar(20)) NOT NULL PK=0
+    - refund_policy_version (varchar(20)) NOT NULL PK=0
+    - consent_type (varchar(20)) NOT NULL PK=0
+    - timestamp (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+
+
+Database [media_db] Tables (39):
+  Table: django_migrations (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - app (varchar(255)) NOT NULL PK=0
+    - name (varchar(255)) NOT NULL PK=0
+    - applied (datetime) NOT NULL PK=0
+  Table: sqlite_sequence (2 columns)
+    - name () NULL PK=0
+    - seq () NULL PK=0
+  Table: auth_group_permissions (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - group_id (INTEGER) NOT NULL PK=0
+    - permission_id (INTEGER) NOT NULL PK=0
+  Table: auth_user_groups (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - user_id (INTEGER) NOT NULL PK=0
+    - group_id (INTEGER) NOT NULL PK=0
+  Table: auth_user_user_permissions (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - user_id (INTEGER) NOT NULL PK=0
+    - permission_id (INTEGER) NOT NULL PK=0
+  Table: account_emailconfirmation (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - created (datetime) NOT NULL PK=0
+    - sent (datetime) NULL PK=0
+    - key (varchar(64)) NOT NULL PK=0
+    - email_address_id (INTEGER) NOT NULL PK=0
+  Table: account_emailaddress (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - verified (bool) NOT NULL PK=0
+    - primary (bool) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - email (varchar(254)) NOT NULL PK=0
+  Table: django_admin_log (8 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - object_id (TEXT) NULL PK=0
+    - object_repr (varchar(200)) NOT NULL PK=0
+    - action_flag (smallint unsigned) NOT NULL PK=0
+    - change_message (TEXT) NOT NULL PK=0
+    - content_type_id (INTEGER) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - action_time (datetime) NOT NULL PK=0
+  Table: django_content_type (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - app_label (varchar(100)) NOT NULL PK=0
+    - model (varchar(100)) NOT NULL PK=0
+  Table: auth_permission (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - content_type_id (INTEGER) NOT NULL PK=0
+    - codename (varchar(100)) NOT NULL PK=0
+    - name (varchar(255)) NOT NULL PK=0
+  Table: auth_group (2 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(150)) NOT NULL PK=0
+  Table: auth_user (11 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - password (varchar(128)) NOT NULL PK=0
+    - last_login (datetime) NULL PK=0
+    - is_superuser (bool) NOT NULL PK=0
+    - username (varchar(150)) NOT NULL PK=0
+    - last_name (varchar(150)) NOT NULL PK=0
+    - email (varchar(254)) NOT NULL PK=0
+    - is_staff (bool) NOT NULL PK=0
+    - is_active (bool) NOT NULL PK=0
+    - date_joined (datetime) NOT NULL PK=0
+    - first_name (varchar(150)) NOT NULL PK=0
+  Table: django_session (3 columns)
+    - session_key (varchar(40)) NOT NULL PK=1
+    - session_data (TEXT) NOT NULL PK=0
+    - expire_date (datetime) NOT NULL PK=0
+  Table: django_site (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(50)) NOT NULL PK=0
+    - domain (varchar(100)) NOT NULL PK=0
+  Table: socialaccount_socialapp_sites (3 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - socialapp_id (INTEGER) NOT NULL PK=0
+    - site_id (INTEGER) NOT NULL PK=0
+  Table: socialaccount_socialapp (8 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - provider (varchar(30)) NOT NULL PK=0
+    - name (varchar(40)) NOT NULL PK=0
+    - client_id (varchar(191)) NOT NULL PK=0
+    - secret (varchar(191)) NOT NULL PK=0
+    - key (varchar(191)) NOT NULL PK=0
+    - provider_id (varchar(200)) NOT NULL PK=0
+    - settings (TEXT) NOT NULL PK=0
+  Table: socialaccount_socialtoken (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - token (TEXT) NOT NULL PK=0
+    - token_secret (TEXT) NOT NULL PK=0
+    - expires_at (datetime) NULL PK=0
+    - account_id (INTEGER) NOT NULL PK=0
+    - app_id (INTEGER) NULL PK=0
+  Table: socialaccount_socialaccount (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - provider (varchar(200)) NOT NULL PK=0
+    - uid (varchar(191)) NOT NULL PK=0
+    - last_login (datetime) NOT NULL PK=0
+    - date_joined (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - extra_data (TEXT) NOT NULL PK=0
+  Table: accounts_authlog (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - action (varchar(10)) NOT NULL PK=0
+    - timestamp (datetime) NOT NULL PK=0
+    - ip_address (char(39)) NULL PK=0
+    - user_agent (varchar(255)) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_paymentrecord (9 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - amount (decimal) NOT NULL PK=0
+    - currency (varchar(10)) NOT NULL PK=0
+    - plan_name (varchar(50)) NOT NULL PK=0
+    - payment_method (varchar(20)) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - transaction_id (varchar(100)) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: core_downloadhistory (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - download_date (datetime) NOT NULL PK=0
+    - processed_file_id (bigint) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+  Table: core_uploadedfile (10 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - file (varchar(100)) NOT NULL PK=0
+    - filename (varchar(255)) NOT NULL PK=0
+    - upload_date (datetime) NOT NULL PK=0
+    - size (bigint) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+    - checksum (varchar(64)) NULL PK=0
+    - file_type (varchar(50)) NULL PK=0
+    - storage_path (varchar(500)) NULL PK=0
+    - stored_filename (varchar(255)) NULL PK=0
+  Table: accounts_plan (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(50)) NOT NULL PK=0
+    - price (decimal) NOT NULL PK=0
+    - duration_days (INTEGER) NOT NULL PK=0
+  Table: accounts_payment (8 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - order_id (varchar(100)) NOT NULL PK=0
+    - transaction_id (varchar(100)) NULL PK=0
+    - amount (decimal) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - plan_id (bigint) NULL PK=0
+  Table: accounts_invoice (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - invoice_number (varchar(50)) NOT NULL PK=0
+    - pdf_file (varchar(100)) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - payment_id (bigint) NOT NULL PK=0
+  Table: accounts_dailyusage (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - date (date) NOT NULL PK=0
+    - processing_time_seconds (INTEGER) NOT NULL PK=0
+    - upload_count (INTEGER) NOT NULL PK=0
+    - download_count (INTEGER) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: core_toolusagelog (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - tool_name (varchar(50)) NOT NULL PK=0
+    - timestamp (datetime) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+    - duration_seconds (INTEGER) NOT NULL PK=0
+  Table: accounts_subscriptionplan (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - name (varchar(50)) NOT NULL PK=0
+    - price (decimal) NOT NULL PK=0
+    - duration_days (INTEGER) NOT NULL PK=0
+  Table: accounts_webhooklog (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - received_at (datetime) NOT NULL PK=0
+    - payload (TEXT) NOT NULL PK=0
+    - headers (TEXT) NULL PK=0
+    - signature_valid (bool) NOT NULL PK=0
+    - processed (bool) NOT NULL PK=0
+    - error_message (TEXT) NULL PK=0
+  Table: accounts_subscription (8 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - start_date (datetime) NOT NULL PK=0
+    - end_date (datetime) NOT NULL PK=0
+    - is_active (bool) NOT NULL PK=0
+    - plan_id (bigint) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - expired_alert_sent (bool) NOT NULL PK=0
+    - expiring_alert_sent (bool) NOT NULL PK=0
+  Table: accounts_auditlog (6 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - action (varchar(100)) NOT NULL PK=0
+    - details (TEXT) NULL PK=0
+    - ip_address (char(39)) NULL PK=0
+    - timestamp (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+  Table: accounts_processingtime (4 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - date (date) NOT NULL PK=0
+    - duration_seconds (INTEGER) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_toolusage (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - tool_name (varchar(50)) NOT NULL PK=0
+    - use_count (INTEGER) NOT NULL PK=0
+    - last_used (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+  Table: accounts_transaction (9 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - transaction_id (varchar(100)) NOT NULL PK=0
+    - amount (decimal) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - payment_method (varchar(50)) NULL PK=0
+    - response_code (varchar(50)) NULL PK=0
+    - raw_response (TEXT) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - payment_id (bigint) NOT NULL PK=0
+  Table: accounts_usagehistory (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - date (date) NOT NULL PK=0
+    - tool_name (varchar(50)) NOT NULL PK=0
+    - processing_time_seconds (INTEGER) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: accounts_profile (11 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - otp_created_at (datetime) NULL PK=0
+    - is_verified (bool) NOT NULL PK=0
+    - is_pro (bool) NOT NULL PK=0
+    - pro_expiry (datetime) NULL PK=0
+    - trial_used (bool) NOT NULL PK=0
+    - stripe_customer_id (varchar(100)) NULL PK=0
+    - subscription_id (varchar(100)) NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+    - otp_attempts (INTEGER) NOT NULL PK=0
+    - otp (varchar(255)) NULL PK=0
+  Table: accounts_passwordresetotp (7 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - otp (varchar(10)) NOT NULL PK=0
+    - reset_token (varchar(100)) NULL PK=0
+    - created_at (datetime) NOT NULL PK=0
+    - attempts (INTEGER) NOT NULL PK=0
+    - is_used (bool) NOT NULL PK=0
+    - user_id (INTEGER) NOT NULL PK=0
+  Table: core_processedfile (15 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - task_id (char(32)) NOT NULL PK=0
+    - file (varchar(100)) NULL PK=0
+    - filename (varchar(255)) NOT NULL PK=0
+    - tool_used (varchar(50)) NOT NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - error_message (TEXT) NULL PK=0
+    - process_date (datetime) NOT NULL PK=0
+    - original_file_id (bigint) NULL PK=0
+    - user_id (INTEGER) NULL PK=0
+    - checksum (varchar(64)) NULL PK=0
+    - file_size (bigint) NOT NULL PK=0
+    - file_type (varchar(50)) NULL PK=0
+    - storage_path (varchar(500)) NULL PK=0
+    - stored_filename (varchar(255)) NULL PK=0
+  Table: documents_rendereddocument (5 columns)
+    - id (INTEGER) NOT NULL PK=1
+    - original_file (varchar(100)) NOT NULL PK=0
+    - pdf_output (varchar(100)) NULL PK=0
+    - status (varchar(20)) NOT NULL PK=0
+    - created_at (datetime) NOT NULL PK=0

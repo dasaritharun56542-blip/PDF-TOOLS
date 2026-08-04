@@ -1,0 +1,12 @@
+========================================
+ROLLBACK INSTRUCTIONS
+========================================
+
+To revert to original SQLite databases:
+
+1. Restore settings_before_postgresql.py to config/settings.py:
+   copy migration_backup\reports\settings_before_postgresql.py config\settings.py
+
+2. The original db.sqlite3 and media_db.sqlite3 files remain untouched in the project root and in migration_backup\database\.
+
+3. Restart the Django development server.

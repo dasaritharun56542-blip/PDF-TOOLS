@@ -1,0 +1,2 @@
+Router: core.db_routers.MediaRouter
+Routes app 'core' to 'media_db' alias. All other apps route to 'default' alias.

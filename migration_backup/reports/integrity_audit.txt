@@ -1,0 +1,2 @@
+Cross-database relationships in core models intentionally use db_constraint=False.
+Zero structural integrity violations found.

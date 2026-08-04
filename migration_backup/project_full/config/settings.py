@@ -70,20 +70,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'pdf_powerhouse'),
-        'USER': os.environ.get('DB_USER', 'pdf_powerhouse'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'pdf_powerhouse_pass_2026'),
-        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     },
     'media_db': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('MEDIA_DB_NAME', 'pdf_powerhouse_media'),
-        'USER': os.environ.get('DB_USER', 'pdf_powerhouse'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'pdf_powerhouse_pass_2026'),
-        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'media_db.sqlite3',
     }
 }
 
