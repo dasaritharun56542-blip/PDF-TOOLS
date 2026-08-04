@@ -802,12 +802,14 @@ def api_admin_file_preview(request, category, file_id):
         filename = record.filename
         
     try:
-        abs_path = storage_mgr.get_absolute_path(rel_path)
-        if not abs_path.exists():
-            return HttpResponseNotFound("File not found in storage")
-        return FileResponse(open(abs_path, 'rb'), filename=filename)
+        user_id = record.user_id if hasattr(record, 'user_id') else getattr(record.user, 'id', 0) if hasattr(record, 'user') else 0
+        file_bytes = storage_mgr.get_file_bytes(rel_path, user_id=user_id)
+        return HttpResponse(file_bytes, content_type='application/pdf', headers={
+            'Content-Disposition': f'inline; filename="{filename}"'
+        })
     except Exception as e:
         return HttpResponseServerError(str(e))
+
 
 @login_required
 @csrf_exempt

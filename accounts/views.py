@@ -920,6 +920,16 @@ def generate_invoice_pdf(invoice):
     
     invoice.pdf_file.save(f"invoice_{invoice.invoice_number}.pdf", ContentFile(pdf_content), save=True)
 
+    # Sync Invoice PDF to private Supabase Storage
+    try:
+        from accounts.services.supabase_storage import SupabaseStorageService
+        sup_service = SupabaseStorageService()
+        sup_path = f"invoices/user_{invoice.user.id}/invoice_{invoice.invoice_number}.pdf"
+        sup_service.upload_file(pdf_content, sup_path, content_type='application/pdf', upsert=True)
+    except Exception as e:
+        logger.warning(f"Supabase Storage Invoice sync warning: {e}")
+
+
 def check_phonepe_txn_status(order_id):
     merchant_id = settings.PHONEPE_MERCHANT_ID
     endpoint = f"/pg/v1/status/{merchant_id}/{order_id}"
@@ -1287,11 +1297,29 @@ def download_invoice(request, invoice_id):
         invoice = Invoice.objects.using('default').get(pk=invoice_id, user=request.user)
         if not invoice.pdf_file:
             generate_invoice_pdf(invoice)
+
+        # 1. Attempt download from private Supabase Storage
+        sup_path = f"invoices/user_{invoice.user.id}/invoice_{invoice.invoice_number}.pdf"
+        try:
+            from accounts.services.supabase_storage import SupabaseStorageService
+            sup_service = SupabaseStorageService()
+            if sup_service.file_exists(sup_path):
+                file_bytes = sup_service.download_file(sup_path)
+                return HttpResponse(
+                    file_bytes,
+                    content_type='application/pdf',
+                    headers={'Content-Disposition': f'attachment; filename="invoice_{invoice.invoice_number}.pdf"'}
+                )
+        except Exception as sup_err:
+            logger.warning(f"Supabase Storage invoice download fallback to local disk: {sup_err}")
+
+        # 2. Local Fallback
         return FileResponse(open(invoice.pdf_file.path, 'rb'), as_attachment=True, filename=f"invoice_{invoice.invoice_number}.pdf")
     except Invoice.DoesNotExist:
         return JsonResponse({'error': 'Invoice not found'}, status=404)
     except Exception as e:
         return JsonResponse({'error': str(e)}, status=500)
+
 
 @csrf_exempt
 def api_request_password_reset_otp(request):

@@ -2,20 +2,37 @@ import os
 import hashlib
 import uuid
 import shutil
+import logging
 from pathlib import Path
 from django.conf import settings
 
+logger = logging.getLogger(__name__)
+
 class SecureStorageManager:
     """
-    Enterprise Secure Storage Manager.
+    Enterprise Secure Storage Manager with Supabase Storage Integration & Local Fallback.
     Enforces file storage outside the application directory, filename randomization,
-    SHA256 checksum computation, file metadata management, and secure streaming.
+    SHA256 checksum computation, file metadata management, and dual-layer persistence.
     """
     def __init__(self):
         self.base_dir = Path(getattr(settings, 'SECURE_ADMIN_STORAGE_DIR', Path.home() / '.secure_admin_storage'))
         self.base_dir.mkdir(parents=True, exist_ok=True)
         (self.base_dir / 'uploaded').mkdir(parents=True, exist_ok=True)
         (self.base_dir / 'processed').mkdir(parents=True, exist_ok=True)
+        (self.base_dir / 'invoices').mkdir(parents=True, exist_ok=True)
+
+        self._sup_service = None
+
+    @property
+    def supabase_service(self):
+        if self._sup_service is None:
+            try:
+                from accounts.services.supabase_storage import SupabaseStorageService
+                self._sup_service = SupabaseStorageService()
+            except Exception as e:
+                logger.warning(f"SupabaseStorageService initialization warning: {e}")
+                self._sup_service = None
+        return self._sup_service
 
     def calculate_checksum(self, file_path_or_bytes):
         sha256 = hashlib.sha256()
@@ -41,10 +58,29 @@ class SecureStorageManager:
             raise ValueError("Access Denied: Attempted path traversal out of secure admin storage.")
         return abs_path
 
-    def store_file(self, file_obj_or_path, original_filename, category='uploaded'):
+    def get_supabase_storage_path(self, relative_storage_path, user_id=None) -> str:
         """
-        Stores a file in secure admin storage with randomized filename.
-        Returns dict containing metadata (storage_path, stored_filename, checksum, file_size, file_type).
+        Maps a local relative storage path (e.g. 'uploaded/uuid.pdf' or 'processed/uuid.pdf')
+        to the required Supabase Storage format:
+        - uploads/user_<USER_ID>/<filename>
+        - processed/user_<USER_ID>/<filename>
+        - invoices/user_<USER_ID>/<filename>
+        """
+        clean_path = str(relative_storage_path).replace('\\', '/').lstrip('/')
+        parts = clean_path.split('/')
+        category = parts[0] if parts else 'uploaded'
+        filename = parts[-1] if len(parts) > 1 else clean_path
+
+        sup_category = 'uploads' if category in ('uploaded', 'uploads') else ('processed' if category in ('processed',) else 'invoices')
+        uid = user_id if user_id else 0
+
+        from accounts.services.supabase_storage import SupabaseStorageService
+        return SupabaseStorageService.build_user_storage_path(sup_category, uid, filename)
+
+    def store_file(self, file_obj_or_path, original_filename, category='uploaded', user_id=None):
+        """
+        Stores a file locally AND uploads to Supabase Storage (uploads/user_<ID>/, processed/user_<ID>/).
+        Returns dict containing metadata (storage_path, stored_filename, checksum, file_size, file_type, supabase_path).
         """
         ext = os.path.splitext(original_filename)[1].lstrip('.').lower() or 'bin'
         stored_filename = f"{uuid.uuid4()}.{ext}"
@@ -55,6 +91,7 @@ class SecureStorageManager:
         checksum = None
         file_size = 0
 
+        # Save locally for backward-compatibility fallback
         if isinstance(file_obj_or_path, (str, Path)):
             src_path = Path(file_obj_or_path)
             checksum = self.calculate_checksum(src_path)
@@ -88,26 +125,79 @@ class SecureStorageManager:
             with open(target_abs_path, 'wb') as dst:
                 dst.write(file_obj_or_path)
 
+        # Upload to Supabase Storage
+        supabase_path = None
+        if self.supabase_service:
+            try:
+                supabase_path = self.get_supabase_storage_path(rel_path, user_id=user_id)
+                with open(target_abs_path, 'rb') as f:
+                    self.supabase_service.upload_file(f.read(), supabase_path, upsert=True)
+            except Exception as e:
+                logger.warning(f"Supabase upload sync warning for '{rel_path}': {e}")
+
         return {
             'storage_path': rel_path,
             'stored_filename': stored_filename,
             'checksum': checksum,
             'file_size': file_size,
             'file_type': ext,
-            'absolute_path': str(target_abs_path)
+            'absolute_path': str(target_abs_path),
+            'supabase_path': supabase_path
         }
 
-    def delete_file(self, relative_storage_path):
+    def get_file_bytes(self, relative_storage_path, user_id=None) -> bytes:
+        """
+        Retrieves file bytes. Attempts download from Supabase Storage first, then falls back to local disk.
+        """
+        if self.supabase_service:
+            try:
+                sup_path = self.get_supabase_storage_path(relative_storage_path, user_id=user_id)
+                if self.supabase_service.file_exists(sup_path):
+                    return self.supabase_service.download_file(sup_path)
+            except Exception as e:
+                logger.warning(f"Supabase Storage download fallback to local disk: {e}")
+
+        # Local Fallback
+        abs_path = self.get_absolute_path(relative_storage_path)
+        if not abs_path.exists():
+            raise FileNotFoundError(f"File not found in local or remote storage: {relative_storage_path}")
+        with open(abs_path, 'rb') as f:
+            return f.read()
+
+    def get_signed_url(self, relative_storage_path, user_id=None, expires_in=300) -> str:
+        """
+        Generates a temporary signed URL from Supabase Storage.
+        """
+        if self.supabase_service:
+            sup_path = self.get_supabase_storage_path(relative_storage_path, user_id=user_id)
+            return self.supabase_service.create_signed_url(sup_path, expires_in=expires_in)
+        raise ValueError("Supabase Storage Service unavailable for signed URL generation.")
+
+    def delete_file(self, relative_storage_path, user_id=None):
         if not relative_storage_path:
             return False
+        deleted_remote = False
+        deleted_local = False
+
+        # 1. Delete from Supabase Storage
+        if self.supabase_service:
+            try:
+                sup_path = self.get_supabase_storage_path(relative_storage_path, user_id=user_id)
+                deleted_remote = self.supabase_service.delete_file(sup_path)
+            except Exception as e:
+                logger.warning(f"Supabase Storage delete warning for '{relative_storage_path}': {e}")
+
+        # 2. Delete from Local Disk
         try:
             abs_path = self.get_absolute_path(relative_storage_path)
             if abs_path.exists():
                 abs_path.unlink()
-                return True
+                deleted_local = True
         except Exception as e:
-            print(f"Error deleting file from secure storage: {e}")
-        return False
+            logger.warning(f"Local disk delete warning for '{relative_storage_path}': {e}")
+
+        return deleted_remote or deleted_local
+
 
     def get_storage_stats(self):
         """
