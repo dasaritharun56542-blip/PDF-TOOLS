@@ -5,11 +5,12 @@ from dotenv import load_dotenv
 BASE_DIR = Path(__file__).resolve().parent.parent
 load_dotenv(os.path.join(BASE_DIR, '.env'), override=True)
 
-SECRET_KEY = 'django-insecure-@8n#k*9!p+z^5_x=l-r%s+v*6&y#w@m!q$j^u*i&t#o' # RELOAD V5.1
+SECRET_KEY = os.getenv('DJANGO_SECRET_KEY', 'django-insecure-@8n#k*9!p+z^5_x=l-r%s+v*6&y#w@m!q$j^u*i&t#o')
 
-DEBUG = True
+DEBUG = os.getenv('DJANGO_DEBUG', 'True').lower() in ('true', '1', 't')
 
-ALLOWED_HOSTS = ['*']
+raw_allowed_hosts = os.getenv('ALLOWED_HOSTS', '*')
+ALLOWED_HOSTS = [h.strip() for h in raw_allowed_hosts.split(',') if h.strip()]
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -192,13 +193,40 @@ ACCOUNT_LOGIN_METHODS = {'email'}
 ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
 ACCOUNT_EMAIL_VERIFICATION = 'optional'
 
-CSRF_TRUSTED_ORIGINS = [
+# Production Frontend & Domain Configuration
+FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173').strip()
+
+DEFAULT_CSRF_ORIGINS = [
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://localhost:5174',
     'http://127.0.0.1:5174',
 ]
+env_csrf_origins = os.getenv('CSRF_TRUSTED_ORIGINS', '')
+if env_csrf_origins:
+    DEFAULT_CSRF_ORIGINS.extend([o.strip() for o in env_csrf_origins.split(',') if o.strip()])
+if FRONTEND_URL and FRONTEND_URL not in DEFAULT_CSRF_ORIGINS:
+    DEFAULT_CSRF_ORIGINS.append(FRONTEND_URL)
+
+CSRF_TRUSTED_ORIGINS = list(set(DEFAULT_CSRF_ORIGINS))
 CORS_ALLOW_CREDENTIALS = True
+
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1', 't')
+else:
+    CORS_ALLOW_ALL_ORIGINS = False
+    env_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', FRONTEND_URL)
+    CORS_ALLOWED_ORIGINS = [o.strip() for o in env_cors_origins.split(',') if o.strip()]
+
+# Production HTTPS Security Settings (Active when DEBUG is False)
+if not DEBUG:
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() in ('true', '1', 't')
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() in ('true', '1', 't')
+    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True').lower() in ('true', '1', 't')
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
 
 # PhonePe Configuration
 PHONEPE_MERCHANT_ID = os.getenv('PHONEPE_MERCHANT_ID', 'PGTESTPAYUAT86').strip()
@@ -220,5 +248,4 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 
 # Gotenberg Engine Endpoint Configuration
-GOTENBERG_URL = os.getenv('GOTENBERG_URL', 'http://gotenberg:3000/forms/libreoffice/convert')
-CORS_ALLOW_ALL_ORIGINS = True
+GOTENBERG_URL = os.getenv('GOTENBERG_URL', 'http://gotenberg:3000/forms/libreoffice/convert')

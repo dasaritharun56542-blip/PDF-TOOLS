@@ -845,4 +845,38 @@ def api_admin_file_delete(request):
                 
         return JsonResponse({'success': True, 'deleted_count': deleted_count})
     except Exception as e:
-        return JsonResponse({'error': str(e)}, status=500)
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+def health_check(request):
+    """
+    Production Django Health Check Endpoint.
+    Returns: {"status": "ok", "database": "ok", "storage": "ok"}
+    """
+    db_status = "ok"
+    storage_status = "ok"
+
+    # 1. Verify PostgreSQL Database
+    try:
+        from django.db import connection
+        with connection.cursor() as cursor:
+            cursor.execute("SELECT 1;")
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+
+    # 2. Verify Supabase Storage Connection
+    try:
+        from accounts.services.supabase_storage import SupabaseStorageService
+        storage_service = SupabaseStorageService()
+        storage_service.storage.list()
+    except Exception as e:
+        storage_status = f"error: {str(e)}"
+
+    overall_status = "ok" if (db_status == "ok" and storage_status == "ok") else "degraded"
+
+    return JsonResponse({
+        "status": overall_status,
+        "database": db_status,
+        "storage": storage_status
+    }, status=200 if overall_status == "ok" else 500)
+
