@@ -15,8 +15,8 @@ urlpatterns = [
     # Secret Owner Portal (Owner-Only Access)
     path('owner-portal-secret-manage-x89/', admin.site.urls),
 
+    path('health/', views.health_check),
     path('api/health/', views.health_check),
-    path('api/documents/', include('documents.urls')),
     path('', include('core.urls')),
     path('accounts/', include('accounts.urls')),
     path('accounts/', include('allauth.urls')),

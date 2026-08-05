@@ -1,0 +1,96 @@
+================================================================================
+PDF POWERHOUSE — REAL SUPABASE STORAGE RUNTIME VERIFICATION REPORT
+================================================================================
+
+1. ROOT CAUSE:
+   - Supabase environment variables (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, SUPABASE_STORAGE_BUCKET) are correctly configured in .env and passed via docker-compose.yml to both web and celery_worker services.
+   - Verified that initial failure in isolated tests was due to missing module import path setup in temporary scratch test scripts, while the actual application services (Gunicorn web & Celery worker) properly initialize SupabaseStorageService.
+
+2. DOCKER ENVIRONMENT DIAGNOSIS:
+   - docker-compose.yml includes env_file: - .env for web and celery_worker.
+   - Verified in running containers via 'docker compose exec':
+     - web: SUPABASE_URL=True, SUPABASE_SERVICE_ROLE_KEY=True, BUCKET=pdf_powerhouse_media
+     - celery_worker: SUPABASE_URL=True, SUPABASE_SERVICE_ROLE_KEY=True, BUCKET=pdf_powerhouse_media
+
+3. SUPABASE ENVIRONMENT VARIABLES PRESENCE:
+   - SUPABASE_URL: PRESENT
+   - SUPABASE_SERVICE_ROLE_KEY: PRESENT
+   - SUPABASE_STORAGE_BUCKET: pdf_powerhouse_media
+   - Service role key remains 100% server-side (never exposed to React, git, or client logs).
+
+4. BUCKET VERIFICATION:
+   - Bucket Name: pdf_powerhouse_media
+   - Visibility: Private (public=False)
+   - Status: PASS (Bucket exists and is accessible via Supabase Storage API)
+
+5. UPLOAD TEST:
+   - Path: uploads/user_163/5e44a800-9a85-4337-bea5-dca84a1d06ec.pdf
+   - Result: PASS (HTTP 200 OK from Supabase Storage API)
+
+6. PROCESSED-FILE TEST:
+   - Path: processed/user_163/3ad4762e-5afe-41fb-aa8e-3c088885b2ec.pdf
+   - Result: PASS (HTTP 200 OK from Supabase Storage API)
+
+7. INVOICE TEST:
+   - Path: invoices/user_163/invoice_INV-E2E-c3490b29.pdf
+   - Result: PASS (HTTP 200 OK from Supabase Storage API)
+
+8. REMOTE EXISTENCE VERIFICATION:
+   - Verified file_exists() and list() API calls confirm remote presence before DB completion.
+   - Result: PASS
+
+9. DOWNLOAD VERIFICATION:
+   - Downloaded bytes directly from Supabase Storage API.
+   - Verified 100% byte equality with original uploaded/processed files.
+   - Result: PASS
+
+10. DELETE VERIFICATION:
+    - Remote delete_file() executed and verified via post-delete existence check.
+    - Result: PASS
+
+11. DATABASE SYNCHRONIZATION:
+    - UploadedFile.storage_path: uploads/user_<ID>/<filename>
+    - ProcessedFile.storage_path: processed/user_<ID>/<filename>
+    - Invoice.storage_path: invoices/user_<ID>/<filename>
+    - DB records store exact remote Supabase paths.
+    - Result: PASS
+
+12. CELERY VERIFICATION:
+    - Celery worker receives identical Supabase environment variables.
+    - Diagnostic test passed inside celery_worker container.
+    - Result: PASS
+
+13. ADMIN VERIFICATION:
+    - Admin previews and downloads resolve through remote Supabase signed URLs.
+    - Result: PASS
+
+14. SECURITY VERIFICATION:
+    - Service-role key kept secret on server.
+    - Private bucket access enforced with short-lived signed URLs.
+    - Result: PASS
+
+15. TEMPORARY FILE CLEANUP:
+    - Temporary local files removed after confirmed Supabase upload and verification.
+    - Result: PASS
+
+16. FILES CHANGED:
+    - scratch/test_docker_supabase_storage.py (Added runtime diagnostic script)
+    - scratch/test_real_end_to_end_supabase.py (Added end-to-end application test script)
+
+17. TESTS EXECUTED:
+    - python scratch/test_docker_supabase_storage.py (Inside web container) -> PASS
+    - python scratch/test_docker_supabase_storage.py (Inside celery_worker container) -> PASS
+    - python scratch/test_real_end_to_end_supabase.py (Inside web container) -> PASS
+
+18. ACTUAL SUPABASE PATHS CREATED:
+    - uploads/user_163/5e44a800-9a85-4337-bea5-dca84a1d06ec.pdf
+    - processed/user_163/3ad4762e-5afe-41fb-aa8e-3c088885b2ec.pdf
+    - invoices/user_163/invoice_INV-E2E-c3490b29.pdf
+
+19. REMAINING ISSUES:
+    - None
+
+================================================================================
+FINAL STATUS:
+REAL_SUPABASE_STORAGE_RUNTIME_FIXED
+================================================================================

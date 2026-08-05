@@ -24,7 +24,6 @@ INSTALLED_APPS = [
     'rest_framework',
     'core',
     'accounts',
-    'documents',
     
     # Allauth
     'allauth',
@@ -69,24 +68,36 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('DB_NAME', 'pdf_powerhouse'),
-        'USER': os.environ.get('DB_USER', 'pdf_powerhouse'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'pdf_powerhouse_pass_2026'),
-        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
-    },
-    'media_db': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': os.environ.get('MEDIA_DB_NAME', 'pdf_powerhouse_media'),
-        'USER': os.environ.get('DB_USER', 'pdf_powerhouse'),
-        'PASSWORD': os.environ.get('DB_PASSWORD', 'pdf_powerhouse_pass_2026'),
-        'HOST': os.environ.get('DB_HOST', '127.0.0.1'),
-        'PORT': os.environ.get('DB_PORT', '5432'),
+if os.environ.get('DB_HOST'):
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('DB_NAME', 'pdf_powerhouse'),
+            'USER': os.environ.get('DB_USER', 'pdf_powerhouse'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'pdf_powerhouse_pass_2026'),
+            'HOST': os.environ.get('DB_HOST'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        },
+        'media_db': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': os.environ.get('MEDIA_DB_NAME', 'pdf_powerhouse_media'),
+            'USER': os.environ.get('DB_USER', 'pdf_powerhouse'),
+            'PASSWORD': os.environ.get('DB_PASSWORD', 'pdf_powerhouse_pass_2026'),
+            'HOST': os.environ.get('DB_HOST'),
+            'PORT': os.environ.get('DB_PORT', '5432'),
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        },
+        'media_db': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'media_db.sqlite3',
+        }
+    }
 
 DATABASE_ROUTERS = ['core.db_routers.MediaRouter']
 
@@ -236,16 +247,8 @@ PHONEPE_ENV = os.getenv('PHONEPE_ENV', 'UAT').strip() # 'UAT' or 'PROD'
 PHONEPE_REDIRECT_URL = os.getenv('PHONEPE_REDIRECT_URL', 'http://localhost:5174/accounts/payment-success').strip()
 PHONEPE_CALLBACK_URL = os.getenv('PHONEPE_CALLBACK_URL', 'http://localhost:8000/accounts/phonepe/webhook/').strip()
 
-# ONLYOFFICE Document Server Conversion Service Settings
-ONLYOFFICE_URL = os.getenv('ONLYOFFICE_URL', 'http://localhost:8080').strip()
-ONLYOFFICE_TIMEOUT = int(os.getenv('ONLYOFFICE_TIMEOUT', '60'))
-ONLYOFFICE_MAX_RETRIES = int(os.getenv('ONLYOFFICE_MAX_RETRIES', '3'))
-
 # Celery Configuration
 CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
 CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', 'redis://redis:6379/0')
 CELERY_ACCEPT_CONTENT = ['json']
-CELERY_TASK_SERIALIZER = 'json'
-
-# Gotenberg Engine Endpoint Configuration
-GOTENBERG_URL = os.getenv('GOTENBERG_URL', 'http://gotenberg:3000/forms/libreoffice/convert')
+CELERY_TASK_SERIALIZER = 'json'

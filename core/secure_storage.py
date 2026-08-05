@@ -1,4 +1,5 @@
 import os
+import re
 import hashlib
 import uuid
 import shutil
@@ -67,12 +68,18 @@ class SecureStorageManager:
         - invoices/user_<USER_ID>/<filename>
         """
         clean_path = str(relative_storage_path).replace('\\', '/').lstrip('/')
+        
+        # If already formatted as uploads/user_X/..., processed/user_X/..., or invoices/user_X/..., validate and return directly
+        if re.match(r'^(uploads|processed|invoices)/user_\d+/', clean_path):
+            from accounts.services.supabase_storage import SupabaseStorageService
+            return SupabaseStorageService.validate_storage_path(clean_path)
+
         parts = clean_path.split('/')
         category = parts[0] if parts else 'uploaded'
         filename = parts[-1] if len(parts) > 1 else clean_path
 
         sup_category = 'uploads' if category in ('uploaded', 'uploads') else ('processed' if category in ('processed',) else 'invoices')
-        uid = user_id if user_id else 0
+        uid = user_id if (user_id is not None) else 0
 
         from accounts.services.supabase_storage import SupabaseStorageService
         return SupabaseStorageService.build_user_storage_path(sup_category, uid, filename)
@@ -91,7 +98,7 @@ class SecureStorageManager:
         checksum = None
         file_size = 0
 
-        # Save locally for backward-compatibility fallback
+        # Save locally for temporary processing and fallback
         if isinstance(file_obj_or_path, (str, Path)):
             src_path = Path(file_obj_or_path)
             checksum = self.calculate_checksum(src_path)
@@ -131,13 +138,21 @@ class SecureStorageManager:
             try:
                 supabase_path = self.get_supabase_storage_path(rel_path, user_id=user_id)
                 with open(target_abs_path, 'rb') as f:
-                    self.supabase_service.upload_file(f.read(), supabase_path, upsert=True)
+                    content_type = 'application/pdf' if ext == 'pdf' else None
+                    self.supabase_service.upload_file(f.read(), supabase_path, content_type=content_type, upsert=True)
+                
+                # Remote object existence verification
+                if not self.supabase_service.file_exists(supabase_path):
+                    from accounts.services.supabase_storage import SupabaseStorageUploadError
+                    raise SupabaseStorageUploadError(f"Remote object verification failed for path '{supabase_path}'")
             except Exception as e:
-                logger.warning(f"Supabase upload sync warning for '{rel_path}': {e}")
+                logger.error(f"Supabase Storage upload failed for '{rel_path}': {e}")
+                from accounts.services.supabase_storage import SupabaseStorageUploadError
+                raise SupabaseStorageUploadError(f"Supabase upload failure for '{rel_path}': {str(e)}") from e
 
         return {
-            'storage_path': rel_path,
-            'stored_filename': stored_filename,
+            'storage_path': supabase_path or rel_path,
+            'stored_filename': os.path.basename(supabase_path) if supabase_path else stored_filename,
             'checksum': checksum,
             'file_size': file_size,
             'file_type': ext,
@@ -154,8 +169,10 @@ class SecureStorageManager:
                 sup_path = self.get_supabase_storage_path(relative_storage_path, user_id=user_id)
                 if self.supabase_service.file_exists(sup_path):
                     return self.supabase_service.download_file(sup_path)
+                elif self.supabase_service.file_exists(str(relative_storage_path).replace('\\', '/').lstrip('/')):
+                    return self.supabase_service.download_file(str(relative_storage_path).replace('\\', '/').lstrip('/'))
             except Exception as e:
-                logger.warning(f"Supabase Storage download fallback to local disk: {e}")
+                logger.warning(f"Supabase Storage download fallback to local disk for '{relative_storage_path}': {e}")
 
         # Local Fallback
         abs_path = self.get_absolute_path(relative_storage_path)

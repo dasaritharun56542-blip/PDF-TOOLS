@@ -7,7 +7,6 @@ annotated-doc==0.0.4
 annotated-types==0.8.0
 anyio==4.14.2
 asgiref==3.12.1
-aspose-cells==24.10.0
 attrs==26.1.0
 bce-python-sdk==0.9.76
 billiard==4.2.4
@@ -30,7 +29,6 @@ django-allauth==65.18.0
 django-cleanup==9.0.0
 django-cors-headers==4.9.0
 djangorestframework==3.17.1
-docx2pdf==0.1.8
 et_xmlfile==2.0.0
 fastapi==0.140.0
 filelock==3.32.2
@@ -88,7 +86,6 @@ python-bidi==0.6.11
 python-dateutil==2.9.0.post0
 python-docx==1.2.0
 python-dotenv==1.2.2
-pywin32==312
 PyYAML==6.0.2
 realtime==2.31.0
 redis==5.0.1

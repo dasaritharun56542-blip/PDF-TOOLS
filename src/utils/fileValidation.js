@@ -58,10 +58,11 @@ export const TOOL_FILE_RULES = {
 
   // Excel Tools
   'excel_default': {
-    extensions: ['.xlsx', '.xls'],
+    extensions: ['.xlsx', '.xls', '.xlsm'],
     mimeTypes: [
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'application/vnd.ms-excel'
+      'application/vnd.ms-excel',
+      'application/vnd.ms-excel.sheet.macroEnabled.12'
     ],
     magicCheck: (bytes) => {
       // OOXML: PK (0x50, 0x4B)
@@ -70,7 +71,7 @@ export const TOOL_FILE_RULES = {
       if (bytes[0] === 0xD0 && bytes[1] === 0xCF) return true;
       return false;
     },
-    label: 'Excel spreadsheets (.xlsx, .xls)'
+    label: 'Excel spreadsheets (.xlsx, .xls, .xlsm)'
   },
 
   // PowerPoint Tools
@@ -122,7 +123,6 @@ export const TOOL_CATEGORY_MAP = {
   'redact-pdf': 'pdf_default',
   'compare-pdf': 'pdf_default',
   'pdf-reader': 'pdf_default',
-  'pdf-thumbnail-viewer': 'pdf_default',
   'share-pdf': 'pdf_default',
   'generate-share-link': 'pdf_default',
 

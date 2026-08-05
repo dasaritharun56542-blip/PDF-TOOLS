@@ -926,8 +926,10 @@ def generate_invoice_pdf(invoice):
         sup_service = SupabaseStorageService()
         sup_path = f"invoices/user_{invoice.user.id}/invoice_{invoice.invoice_number}.pdf"
         sup_service.upload_file(pdf_content, sup_path, content_type='application/pdf', upsert=True)
+        if not sup_service.file_exists(sup_path):
+            logger.error(f"Supabase Storage invoice remote verification failed for {sup_path}")
     except Exception as e:
-        logger.warning(f"Supabase Storage Invoice sync warning: {e}")
+        logger.error(f"Supabase Storage Invoice upload error: {e}")
 
 
 def check_phonepe_txn_status(order_id):
@@ -1298,8 +1300,19 @@ def download_invoice(request, invoice_id):
         if not invoice.pdf_file:
             generate_invoice_pdf(invoice)
 
-        # 1. Attempt download from private Supabase Storage
         sup_path = f"invoices/user_{invoice.user.id}/invoice_{invoice.invoice_number}.pdf"
+        
+        # Support signed URL generation if requested
+        if request.GET.get('signed') == 'true':
+            try:
+                from accounts.services.supabase_storage import SupabaseStorageService
+                sup_service = SupabaseStorageService()
+                signed_url = sup_service.create_signed_url(sup_path)
+                return JsonResponse({'success': True, 'signed_url': signed_url, 'invoice_number': invoice.invoice_number})
+            except Exception as e:
+                return JsonResponse({'error': f"Failed to create signed URL: {str(e)}"}, status=500)
+
+        # 1. Attempt download from private Supabase Storage
         try:
             from accounts.services.supabase_storage import SupabaseStorageService
             sup_service = SupabaseStorageService()
@@ -1314,7 +1327,9 @@ def download_invoice(request, invoice_id):
             logger.warning(f"Supabase Storage invoice download fallback to local disk: {sup_err}")
 
         # 2. Local Fallback
-        return FileResponse(open(invoice.pdf_file.path, 'rb'), as_attachment=True, filename=f"invoice_{invoice.invoice_number}.pdf")
+        if invoice.pdf_file and os.path.exists(invoice.pdf_file.path):
+            return FileResponse(open(invoice.pdf_file.path, 'rb'), as_attachment=True, filename=f"invoice_{invoice.invoice_number}.pdf")
+        return HttpResponseNotFound("Invoice PDF file not found.")
     except Invoice.DoesNotExist:
         return JsonResponse({'error': 'Invoice not found'}, status=404)
     except Exception as e:

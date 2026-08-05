@@ -148,7 +148,7 @@ def process_tool(request, tool_slug):
                 'pdf': ['.pdf'],
                 'image': ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.gif', '.jfif'],
                 'word': ['.docx', '.doc'],
-                'excel': ['.xlsx', '.xls'],
+                'excel': ['.xlsx', '.xls', '.xlsm'],
                 'ppt': ['.pptx', '.ppt'],
                 'html': ['.html', '.htm']
             }
@@ -178,7 +178,7 @@ def process_tool(request, tool_slug):
                 return JsonResponse({'error': f'Invalid format for this tool. Expected: {", ".join(allowed)}'}, status=400)
             
             # Global safety check
-            global_allowed = ('.pdf', '.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.gif', '.jfif', '.docx', '.doc', '.xlsx', '.xls', '.pptx', '.ppt', '.html', '.htm', '.odt', '.rtf')
+            global_allowed = ('.pdf', '.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.gif', '.jfif', '.docx', '.doc', '.xlsx', '.xls', '.xlsm', '.pptx', '.ppt', '.html', '.htm', '.odt', '.rtf')
             if file_ext not in global_allowed:
                 return JsonResponse({'error': f'Unsupported file type: {file_ext}'}, status=400)
 
@@ -187,17 +187,18 @@ def process_tool(request, tool_slug):
         from .secure_storage import SecureStorageManager
         storage_mgr = SecureStorageManager()
         
+        user_id = request.user.id if request.user.is_authenticated else 0
         temp_paths = []
         uploaded_records = []
         for f in files:
             f.seek(0)
-            meta = storage_mgr.store_file(f, f.name, category='uploaded')
+            meta = storage_mgr.store_file(f, f.name, category='uploaded', user_id=user_id)
             uf = UploadedFile(
                 user_id=request.user.id if request.user.is_authenticated else None,
-                file=meta['storage_path'],
+                file=meta['supabase_path'] or meta['storage_path'],
                 filename=f.name,
                 stored_filename=meta['stored_filename'],
-                storage_path=meta['storage_path'],
+                storage_path=meta['supabase_path'] or meta['storage_path'],
                 checksum=meta['checksum'],
                 file_type=meta['file_type'],
                 size=meta['file_size']
@@ -210,7 +211,7 @@ def process_tool(request, tool_slug):
         logo_path = None
         if request.FILES.get('logo'):
             logo = request.FILES['logo']
-            logo_meta = storage_mgr.store_file(logo, logo.name, category='uploaded')
+            logo_meta = storage_mgr.store_file(logo, logo.name, category='uploaded', user_id=user_id)
             logo_path = logo_meta['absolute_path']
         
         # Create processing record
@@ -262,21 +263,33 @@ def process_tool(request, tool_slug):
                 print(f"DEBUG process_async tool_slug={tool_slug}, options={options}", flush=True)
                 processed_path, filename = processor.handle(tool_slug, opened_files, options)
                 
-                # Update record with complete secure metadata
+                # Upload output processed file to Supabase Storage
                 abs_proc_path = storage_mgr.get_absolute_path(processed_path)
-                checksum = storage_mgr.calculate_checksum(abs_proc_path) if abs_proc_path.exists() else None
-                file_size = abs_proc_path.stat().st_size if abs_proc_path.exists() else 0
-                file_type = os.path.splitext(filename)[1].lstrip('.').lower() or 'pdf'
+                p_uid = proc_file.user_id if proc_file.user_id else 0
+                proc_meta = storage_mgr.store_file(abs_proc_path, filename, category='processed', user_id=p_uid)
+                
+                # Remote object existence verification
+                if storage_mgr.supabase_service:
+                    sup_path = proc_meta['supabase_path']
+                    if not storage_mgr.supabase_service.file_exists(sup_path):
+                        raise Exception(f"Supabase Storage remote object verification failed: {sup_path}")
 
-                proc_file.file = processed_path
-                proc_file.stored_filename = os.path.basename(processed_path)
-                proc_file.storage_path = processed_path
-                proc_file.checksum = checksum
-                proc_file.file_size = file_size
-                proc_file.file_type = file_type
+                proc_file.file = proc_meta['supabase_path'] or proc_meta['storage_path']
+                proc_file.stored_filename = proc_meta['stored_filename']
+                proc_file.storage_path = proc_meta['supabase_path'] or proc_meta['storage_path']
+                proc_file.checksum = proc_meta['checksum']
+                proc_file.file_size = proc_meta['file_size']
+                proc_file.file_type = proc_meta['file_type']
                 proc_file.filename = filename
                 proc_file.status = 'completed'
                 proc_file.save()
+
+                # Clean up local temporary file after confirmed upload
+                try:
+                    if abs_proc_path.exists():
+                        abs_proc_path.unlink()
+                except Exception as e_clean:
+                    print(f"Notice: local temporary output cleanup notice: {e_clean}")
                 
             except Exception as e:
                 import traceback
@@ -287,7 +300,7 @@ def process_tool(request, tool_slug):
                 proc_file.error_message = str(e)[:500]
                 proc_file.save()
             finally:
-                # Cleanup
+                # Cleanup opened input handles
                 for f in opened_files:
                     try:
                         f.close()
@@ -342,14 +355,14 @@ def get_status(request, task_id):
 def download_file(request, file_id):
     file = get_object_or_404(ProcessedFile, id=file_id)
     
-    # Secure ownership validation
+    # Secure ownership validation: User A MUST NOT be able to download User B's file
     if file.user_id:
         if not request.user.is_authenticated or request.user.id != file.user_id:
             return HttpResponse("Unauthorized to download this file.", status=403)
     else:
         guest_files = request.session.get('guest_files', [])
         if guest_files and file.id not in guest_files:
-            pass
+            return HttpResponse("Unauthorized to download this file.", status=403)
             
     # Log download history
     try:
@@ -366,11 +379,24 @@ def download_file(request, file_id):
     if not rel_path:
         return HttpResponseNotFound("File location not specified in secure storage.")
         
+    # Support signed URL generation if requested
+    if request.GET.get('signed') == 'true' and storage_mgr.supabase_service:
+        try:
+            u_id = file.user_id if file.user_id else 0
+            signed_url = storage_mgr.get_signed_url(rel_path, user_id=u_id)
+            return JsonResponse({'success': True, 'signed_url': signed_url, 'filename': file.filename})
+        except Exception as e:
+            return JsonResponse({'error': f"Failed to generate signed URL: {str(e)}"}, status=500)
+
     try:
-        abs_path = storage_mgr.get_absolute_path(rel_path)
-        if not abs_path.exists():
-            return HttpResponseNotFound("Requested file does not exist in secure storage.")
-        return FileResponse(open(abs_path, 'rb'), as_attachment=True, filename=file.filename)
+        u_id = file.user_id if file.user_id else 0
+        file_bytes = storage_mgr.get_file_bytes(rel_path, user_id=u_id)
+        content_type = 'application/pdf' if file.file_type == 'pdf' else 'application/octet-stream'
+        return HttpResponse(
+            file_bytes,
+            content_type=content_type,
+            headers={'Content-Disposition': f'attachment; filename="{file.filename}"'}
+        )
     except Exception as e:
         return HttpResponseServerError(f"Secure storage retrieval error: {str(e)}")
 
@@ -616,39 +642,7 @@ def api_dashboard_data(request):
 def error_404(request, exception): return render(request, '404.html', status=404)
 def error_500(request): return render(request, '500.html', status=500)
 
-@csrf_exempt
-def api_preview_word(request):
-    """API endpoint to generate high-resolution page previews for Word (.doc/.docx) documents."""
-    if request.method != 'POST':
-        return JsonResponse({'error': 'POST method required'}, status=405)
 
-    if not request.FILES.get('file'):
-        return JsonResponse({'error': 'No file uploaded'}, status=400)
-
-    uploaded_file = request.FILES['file']
-    filename = uploaded_file.name
-
-    try:
-        from .utils import PDFProcessor
-        processor = PDFProcessor()
-        preview_data = processor.generate_word_preview_images(uploaded_file, filename)
-        return JsonResponse(preview_data)
-    except Exception as e:
-        print(f"Word preview generation error: {e}")
-        return JsonResponse({'error': f"Word document preview failed: {str(e)}"}, status=500)
-
-@csrf_exempt
-def api_office_engine_status(request):
-    """API endpoint returning available Office-to-PDF conversion engine capabilities."""
-    try:
-        from .office_converter import OfficeToPdfConverter
-        caps = OfficeToPdfConverter.detect_engine_capabilities()
-        return JsonResponse({
-            'success': True,
-            'capabilities': caps
-        })
-    except Exception as e:
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 def admin_stealth_404(request, *args, **kwargs):
     """Stealth 404 handler for public /admin paths to conceal admin existence."""

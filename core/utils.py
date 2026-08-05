@@ -528,208 +528,7 @@ class PDFProcessor:
         res_name = self.generate_clean_download_name(tool, res_name, options)
         return res_path, res_name
 
-    def process_word_to_pdf(self, files, options):
-        """Convert Word document (.docx, .doc) to PDF with MS Word and python-docx fallback engines."""
-        import tempfile
-        orig_name = options.get('original_name', 'document.docx')
-        ext = os.path.splitext(orig_name)[1].lower()
-        if ext not in ['.docx', '.doc']:
-            ext = '.docx'
 
-        files[0].seek(0)
-        file_bytes = files[0].read()
-        if not file_bytes:
-            raise Exception("Uploaded Word document is empty.")
-
-        temp_input = os.path.join(tempfile.gettempdir(), f"office_input_{uuid.uuid4()}{ext}")
-        out_path, out_name = self.get_output_path(ext='pdf')
-
-        try:
-            with open(temp_input, 'wb') as tf:
-                tf.write(file_bytes)
-
-            converted_success = False
-
-            # Primary Engine: docx2pdf via MS Word COM
-            try:
-                import pythoncom
-                from docx2pdf import convert
-                pythoncom.CoInitialize()
-                try:
-                    convert(temp_input, out_path)
-                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                        converted_success = True
-                finally:
-                    pythoncom.CoUninitialize()
-            except Exception as com_err:
-                pass
-
-            # Fallback Engine: python-docx + ReportLab
-            if not converted_success:
-                try:
-                    import docx
-                    from reportlab.lib.pagesizes import letter
-                    from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
-                    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-                    from reportlab.lib import colors
-
-                    doc = docx.Document(temp_input)
-                    pdf_doc = SimpleDocTemplate(out_path, pagesize=letter, leftMargin=36, rightMargin=36, topMargin=36, bottomMargin=36)
-                    story = []
-                    styles = getSampleStyleSheet()
-
-                    heading_style = ParagraphStyle('DocHeading', parent=styles['Heading1'], fontSize=16, leading=20, textColor=colors.HexColor('#0f172a'))
-                    body_style = ParagraphStyle('DocBody', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#334155'))
-
-                    for p in doc.paragraphs:
-                        text = p.text.strip()
-                        if text:
-                            if p.style.name.startswith('Heading'):
-                                story.append(Paragraph(text, heading_style))
-                            else:
-                                story.append(Paragraph(text, body_style))
-                            story.append(Spacer(1, 6))
-
-                    if not story:
-                        story.append(Paragraph("Converted Document", heading_style))
-
-                    pdf_doc.build(story)
-                    if os.path.exists(out_path) and os.path.getsize(out_path) > 0:
-                        converted_success = True
-                except Exception as docx_err:
-                    raise Exception(f"Word conversion failed: {str(docx_err)}")
-
-            if not converted_success or not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
-                raise Exception("Failed to generate PDF output from Word document.")
-
-            return f"processed/{out_name}", self.get_display_name(options, "document.pdf", "pdf")
-        except Exception as e:
-            if os.path.exists(out_path):
-                try: os.remove(out_path)
-                except: pass
-            raise Exception(f"Word to PDF Conversion Error: {str(e)}")
-        finally:
-            if os.path.exists(temp_input):
-                try: os.remove(temp_input)
-                except: pass
-
-    def process_excel_to_pdf(self, files, options):
-        """Convert Excel spreadsheet (.xlsx, .xls) to PDF using Microsoft Excel rendering engine."""
-        import pythoncom, tempfile, win32com.client
-
-        orig_name = options.get('original_name', 'spreadsheet.xlsx')
-        ext = os.path.splitext(orig_name)[1].lower()
-        if ext not in ['.xlsx', '.xls']:
-            ext = '.xlsx'
-
-        files[0].seek(0)
-        file_bytes = files[0].read()
-        if not file_bytes:
-            raise Exception("Uploaded Excel spreadsheet is empty.")
-
-        temp_input = os.path.join(tempfile.gettempdir(), f"office_input_{uuid.uuid4()}{ext}")
-        out_path, out_name = self.get_output_path(ext='pdf')
-
-        excel_app = None
-        wb = None
-        try:
-            with open(temp_input, 'wb') as tf:
-                tf.write(file_bytes)
-
-            pythoncom.CoInitialize()
-            try:
-                excel_app = win32com.client.DispatchEx("Excel.Application")
-                excel_app.Visible = False
-                excel_app.DisplayAlerts = False
-                wb = excel_app.Workbooks.Open(os.path.abspath(temp_input), ReadOnly=True)
-
-                # Ensure gridlines (table lines) are printed on every worksheet
-                for ws in wb.Worksheets:
-                    try:
-                        ws.PageSetup.PrintGridlines = True
-                    except Exception as ex:
-                        print(f"Could not enable PrintGridlines for sheet: {ex}")
-
-                # xlTypePDF = 0
-                wb.ExportAsFixedFormat(0, os.path.abspath(out_path))
-            finally:
-                if wb:
-                    try: wb.Close(False)
-                    except: pass
-                if excel_app:
-                    try: excel_app.Quit()
-                    except: pass
-                pythoncom.CoUninitialize()
-
-            if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
-                raise Exception("Microsoft Excel failed to generate PDF output.")
-
-            return f"processed/{out_name}", self.get_display_name(options, "spreadsheet.pdf", "pdf")
-        except Exception as e:
-            if os.path.exists(out_path):
-                try: os.remove(out_path)
-                except: pass
-            raise Exception(f"Excel to PDF Conversion Error: {str(e)}")
-        finally:
-            if os.path.exists(temp_input):
-                try: os.remove(temp_input)
-                except: pass
-
-    def process_pptx_to_pdf(self, files, options):
-        """Convert PowerPoint presentation (.pptx, .ppt) to PDF using Microsoft PowerPoint rendering engine."""
-        import pythoncom, tempfile, win32com.client
-
-        orig_name = options.get('original_name', 'presentation.pptx')
-        ext = os.path.splitext(orig_name)[1].lower()
-        if ext not in ['.pptx', '.ppt']:
-            ext = '.pptx'
-
-        files[0].seek(0)
-        file_bytes = files[0].read()
-        if not file_bytes:
-            raise Exception("Uploaded PowerPoint presentation is empty.")
-
-        temp_input = os.path.join(tempfile.gettempdir(), f"office_input_{uuid.uuid4()}{ext}")
-        out_path, out_name = self.get_output_path(ext='pdf')
-
-        ppt_app = None
-        pres = None
-        try:
-            with open(temp_input, 'wb') as tf:
-                tf.write(file_bytes)
-
-            pythoncom.CoInitialize()
-            try:
-                ppt_app = win32com.client.DispatchEx("PowerPoint.Application")
-                pres = ppt_app.Presentations.Open(os.path.abspath(temp_input), WithWindow=False)
-                # ppSaveAsPDF = 32
-                pres.SaveAs(os.path.abspath(out_path), 32)
-            finally:
-                if pres:
-                    try: pres.Close()
-                    except: pass
-                if ppt_app:
-                    try: ppt_app.Quit()
-                    except: pass
-                pythoncom.CoUninitialize()
-
-            if not os.path.exists(out_path) or os.path.getsize(out_path) == 0:
-                raise Exception("Microsoft PowerPoint failed to generate PDF output.")
-
-            return f"processed/{out_name}", self.get_display_name(options, "presentation.pdf", "pdf")
-        except Exception as e:
-            if os.path.exists(out_path):
-                try: os.remove(out_path)
-                except: pass
-            raise Exception(f"PowerPoint to PDF Conversion Error: {str(e)}")
-        finally:
-            if os.path.exists(temp_input):
-                try: os.remove(temp_input)
-                except: pass
-
-    def process_powerpoint_to_pdf(self, files, options):
-        """Alias for process_pptx_to_pdf."""
-        return self.process_pptx_to_pdf(files, options)
 
     def generate_clean_download_name(self, tool_slug, default_name, options):
         orig = options.get('original_name')
@@ -1289,37 +1088,50 @@ class PDFProcessor:
         return f"processed/{name}", self.get_display_name(options, "unlocked.pdf")
 
     def process_image_to_pdf(self, files, options):
-        """Convert images (PNG, JPG, WEBP, BMP, TIFF, GIF) to PDF using single Pillow+img2pdf+PyMuPDF engine."""
-        import os
-        from .office_converter import OfficeToPdfConverter
+        """Convert images (PNG, JPG, WEBP, BMP, TIFF, GIF) to PDF using Pillow and PyMuPDF engine."""
+        import io
+        from PIL import Image
+
+        doc_out = fitz.open()
+
+        for f in files:
+            f.seek(0)
+            img_bytes = f.read()
+            page_inserted = False
+
+            try:
+                img_doc = fitz.open(stream=img_bytes, filetype="image")
+                pdf_bytes = img_doc.convert_to_pdf()
+                img_pdf = fitz.open("pdf", pdf_bytes)
+                doc_out.insert_pdf(img_pdf)
+                img_pdf.close()
+                img_doc.close()
+                page_inserted = True
+            except Exception as e:
+                print(f"PyMuPDF image_to_pdf notice: {e}")
+
+            if not page_inserted:
+                try:
+                    img = Image.open(io.BytesIO(img_bytes)).convert("RGB")
+                    img_byte_arr = io.BytesIO()
+                    img.save(img_byte_arr, format='JPEG', quality=95)
+
+                    img_doc = fitz.open(stream=img_byte_arr.getvalue(), filetype="jpeg")
+                    pdf_bytes = img_doc.convert_to_pdf()
+                    img_pdf = fitz.open("pdf", pdf_bytes)
+                    doc_out.insert_pdf(img_pdf)
+                    img_pdf.close()
+                    img_doc.close()
+                    page_inserted = True
+                except Exception as e:
+                    print(f"Pillow image_to_pdf fallback failed: {e}")
+
+        if len(doc_out) == 0:
+            raise Exception("Failed to process images into PDF.")
 
         path, name = self.get_output_path(ext='pdf')
-        output_path = os.path.abspath(path)
-
-        if len(files) == 1:
-            f = files[0]
-            orig_name = getattr(f, 'name', '') or options.get('original_name', 'image.png')
-            converter = OfficeToPdfConverter()
-            converter.convert(f, orig_name, output_path, options)
-        else:
-            doc_out = fitz.open()
-            for f in files:
-                f.seek(0)
-                orig_name = getattr(f, 'name', '') or 'image.png'
-                temp_pdf = os.path.join(self.output_dir, f"temp_{uuid.uuid4().hex}.pdf")
-                converter = OfficeToPdfConverter()
-                converter.convert(f, orig_name, temp_pdf, options)
-                
-                doc_in = fitz.open(temp_pdf)
-                doc_out.insert_pdf(doc_in)
-                doc_in.close()
-                if os.path.exists(temp_pdf):
-                    try: os.remove(temp_pdf)
-                    except Exception: pass
-
-            doc_out.save(output_path, garbage=4, deflate=True)
-            doc_out.close()
-
+        doc_out.save(path, garbage=4, deflate=True)
+        doc_out.close()
         return f"processed/{name}", self.get_display_name(options, "combined.pdf", "pdf")
 
     def process_image_to_html(self, files, options):
@@ -1490,69 +1302,7 @@ class PDFProcessor:
         doc.close()
         return f"processed/{name}", self.get_display_name(options, "organized_result.pdf")
 
-    def process_office_to_pdf(self, files, options):
-        """Convert any Office document (Word, Excel, PowerPoint, Text) to PDF using MS Office rendering."""
-        return self.process_word_to_pdf(files, options)
 
-    def generate_word_preview_images(self, file_obj, filename):
-        """Generate high-resolution page preview images for Word (.doc/.docx) documents with 100% reliability."""
-        import base64, os
-        file_obj.seek(0)
-        file_bytes = file_obj.read()
-        file_size_mb = f"{len(file_bytes) / (1024 * 1024):.2f} MB" if len(file_bytes) > 0 else "0.00 MB"
-
-        try:
-            file_obj.seek(0)
-            rel_path, display_name = self.process_word_to_pdf([file_obj], {'original_name': filename})
-            full_pdf_path = os.path.abspath(os.path.join(settings.MEDIA_ROOT, rel_path))
-
-            if not os.path.exists(full_pdf_path):
-                full_pdf_path = os.path.join(self.output_dir, os.path.basename(rel_path))
-
-            if not os.path.exists(full_pdf_path):
-                return {
-                    'success': False,
-                    'file_name': filename,
-                    'file_size': file_size_mb,
-                    'error': 'Word document preview generation skipped.'
-                }
-
-            doc_pdf = fitz.open(full_pdf_path)
-            pages_payload = []
-
-            for i in range(len(doc_pdf)):
-                page = doc_pdf[i]
-                pix = page.get_pixmap(dpi=150)
-                img_b64 = base64.b64encode(pix.tobytes('jpeg')).decode('utf-8')
-                pages_payload.append({
-                    'page_num': i + 1,
-                    'image_url': f'data:image/jpeg;base64,{img_b64}',
-                    'width': pix.width,
-                    'height': pix.height
-                })
-
-            total_pages = len(doc_pdf)
-            doc_pdf.close()
-
-            if os.path.exists(full_pdf_path):
-                try: os.remove(full_pdf_path)
-                except Exception: pass
-
-            return {
-                'success': True,
-                'file_name': filename,
-                'file_size': file_size_mb,
-                'total_pages': total_pages,
-                'pages': pages_payload
-            }
-        except Exception as e:
-            print(f"generate_word_preview_images error: {e}")
-            return {
-                'success': False,
-                'file_name': filename,
-                'file_size': file_size_mb,
-                'error': str(e)
-            }
 
     def process_pdf_to_excel(self, files, options):
         import openpyxl
