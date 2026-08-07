@@ -20,7 +20,10 @@ export function getCookie(name) {
 }
 
 // Setup Axios defaults to pass CSRF and session cookies across domains
-const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+let API_BASE_URL = import.meta.env.VITE_API_URL || '';
+if (API_BASE_URL && API_BASE_URL.endsWith('/')) {
+  API_BASE_URL = API_BASE_URL.slice(0, -1);
+}
 if (API_BASE_URL) {
   axios.defaults.baseURL = API_BASE_URL;
 }
@@ -41,18 +44,19 @@ export const AuthProvider = ({ children }) => {
   const checkAuthStatus = async () => {
     try {
       const res = await axios.get('/api/auth-status/');
-      if (res.data.google_client_id) {
+      if (res.data && res.data.google_client_id) {
         setGoogleClientId(res.data.google_client_id);
       }
-      if (res.data.authenticated) {
+      if (res.data && res.data.authenticated) {
         setUser(res.data.user);
       } else {
         setUser(null);
       }
       return res.data;
     } catch (err) {
+      console.warn("Auth check warning:", err.message || err);
       setUser(null);
-      throw err;
+      return { authenticated: false };
     } finally {
       setLoading(false);
     }
