@@ -68,7 +68,29 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-if os.environ.get('DB_HOST'):
+db_url = os.environ.get('DATABASE_URL')
+if db_url:
+    from urllib.parse import urlparse
+    parsed_db = urlparse(db_url)
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql' if 'postgres' in parsed_db.scheme else 'django.db.backends.sqlite3',
+            'NAME': parsed_db.path.lstrip('/') or 'pdf_powerhouse',
+            'USER': parsed_db.username or '',
+            'PASSWORD': parsed_db.password or '',
+            'HOST': parsed_db.hostname or 'localhost',
+            'PORT': str(parsed_db.port or 5432),
+        },
+        'media_db': {
+            'ENGINE': 'django.db.backends.postgresql' if 'postgres' in parsed_db.scheme else 'django.db.backends.sqlite3',
+            'NAME': os.environ.get('MEDIA_DB_NAME', (parsed_db.path.lstrip('/') or 'pdf_powerhouse') + '_media'),
+            'USER': parsed_db.username or '',
+            'PASSWORD': parsed_db.password or '',
+            'HOST': parsed_db.hostname or 'localhost',
+            'PORT': str(parsed_db.port or 5432),
+        }
+    }
+elif os.environ.get('DB_HOST'):
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
