@@ -19,7 +19,11 @@ export function getCookie(name) {
   return cookieValue;
 }
 
-// Setup Axios defaults to pass CSRF and session cookies
+// Setup Axios defaults to pass CSRF and session cookies across domains
+const API_BASE_URL = import.meta.env.VITE_API_URL || '';
+if (API_BASE_URL) {
+  axios.defaults.baseURL = API_BASE_URL;
+}
 axios.defaults.xsrfCookieName = 'csrftoken';
 axios.defaults.xsrfHeaderName = 'X-CSRFToken';
 axios.defaults.withCredentials = true;
