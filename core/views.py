@@ -39,12 +39,43 @@ CATEGORIES = {
 
 def home(request):
     dist_index = os.path.join(settings.BASE_DIR, 'dist', 'index.html')
-    root_index = os.path.join(settings.BASE_DIR, 'index.html')
-    target_html = dist_index if os.path.exists(dist_index) else root_index
-    if os.path.exists(target_html):
-        with open(target_html, 'r', encoding='utf-8') as f:
+    if os.path.exists(dist_index):
+        with open(dist_index, 'r', encoding='utf-8') as f:
             return HttpResponse(f.read(), content_type='text/html')
-    return render(request, 'home.html', {'tools': TOOLS, 'categories': CATEGORIES})
+    
+    status_html = """
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>PDF Tools Power House - API Backend</title>
+        <style>
+            body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #0f172a; color: #f8fafc; display: flex; align-items: center; justify-content: center; height: 100vh; margin: 0; }
+            .card { background: #1e293b; padding: 2.5rem; border-radius: 16px; border: 1px solid #334155; text-align: center; max-width: 480px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+            .badge { background: #10b981; color: #022c22; font-weight: 600; padding: 4px 12px; border-radius: 9999px; font-size: 0.875rem; display: inline-block; margin-bottom: 1rem; }
+            h1 { font-size: 1.5rem; margin-bottom: 0.5rem; color: #ffffff; }
+            p { color: #94a3b8; font-size: 0.95rem; line-height: 1.5; }
+            a { color: #38bdf8; text-decoration: none; font-weight: 500; }
+            a:hover { text-decoration: underline; }
+            .endpoints { background: #0f172a; padding: 1rem; border-radius: 8px; margin-top: 1.5rem; text-align: left; font-family: monospace; font-size: 0.85rem; }
+        </style>
+    </head>
+    <body>
+        <div class="card">
+            <span class="badge">● API Online</span>
+            <h1>PDF Tools Power House Backend</h1>
+            <p>The Django API backend is running smoothly.</p>
+            <div class="endpoints">
+                <p style="margin: 0; color: #38bdf8;">GET /api/health/ → 200 OK</p>
+            </div>
+            <p style="margin-top: 1.5rem;">To access the full web application interface, visit your <strong>Vercel Frontend URL</strong>.</p>
+        </div>
+    </body>
+    </html>
+    """
+    return HttpResponse(status_html, content_type='text/html')
+
 
 def tool_detail(request, tool_slug):
     tool = TOOLS.get(tool_slug)
