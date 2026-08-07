@@ -248,13 +248,7 @@ if FRONTEND_URL and FRONTEND_URL not in DEFAULT_CSRF_ORIGINS:
 
 CSRF_TRUSTED_ORIGINS = list(set(DEFAULT_CSRF_ORIGINS))
 CORS_ALLOW_CREDENTIALS = True
-
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = os.getenv('CORS_ALLOW_ALL_ORIGINS', 'True').lower() in ('true', '1', 't')
-else:
-    CORS_ALLOW_ALL_ORIGINS = False
-    env_cors_origins = os.getenv('CORS_ALLOWED_ORIGINS', FRONTEND_URL)
-    CORS_ALLOWED_ORIGINS = [o.strip() for o in env_cors_origins.split(',') if o.strip()]
+CORS_ALLOW_ALL_ORIGINS = True
 
 # Production HTTPS & Cross-Site Cookie Security Settings
 if not DEBUG:

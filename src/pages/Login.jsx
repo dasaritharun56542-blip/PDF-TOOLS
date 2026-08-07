@@ -39,13 +39,13 @@ export default function Login() {
               }
             } else if (response.error && response.error !== 'popup_closed_by_user') {
               setSubmitting(false);
-              const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+              const backendUrl = (import.meta.env.VITE_API_URL || 'https://pdf-tools-1-zr56.onrender.com').replace(/\/$/, '');
               window.location.href = `${backendUrl}/accounts/google/login/?process=login`;
             }
           },
           error_callback: (err) => {
             setSubmitting(false);
-            const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+            const backendUrl = (import.meta.env.VITE_API_URL || 'https://pdf-tools-1-zr56.onrender.com').replace(/\/$/, '');
             window.location.href = `${backendUrl}/accounts/google/login/?process=login`;
           }
         });
@@ -57,7 +57,7 @@ export default function Login() {
     }
 
     // Fallback to direct OAuth redirect
-    const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+    const backendUrl = (import.meta.env.VITE_API_URL || 'https://pdf-tools-1-zr56.onrender.com').replace(/\/$/, '');
     window.location.href = `${backendUrl}/accounts/google/login/?process=login`;
   };
 
