@@ -105,6 +105,7 @@ def tool_detail(request, tool_slug):
     template = 'edit_pdf.html' if tool_slug == 'edit-pdf' else 'tool.html'
     return render(request, template, {'tool': tool, 'slug': tool_slug})
 
+@csrf_exempt
 def get_page_count(request):
     if request.method == 'POST' and request.FILES.get('file'):
         f = request.FILES['file']
@@ -121,8 +122,10 @@ def tool_info(request, tool_slug):
     if not tool: return JsonResponse({'error': 'Not found'}, status=404)
     return JsonResponse(tool)
 
-def process_tool(request, tool_slug):
+@csrf_exempt
+def process_tool(request, tool_slug=None):
     if request.method == 'POST':
+        tool_slug = tool_slug or request.POST.get('tool') or 'merge'
         files = request.FILES.getlist('files')
         
         if not files:
@@ -372,15 +375,15 @@ def process_tool(request, tool_slug):
     
     return redirect('home')
 
+@csrf_exempt
 def get_status(request, task_id):
     proc_file = get_object_or_404(ProcessedFile, task_id=task_id)
-    
-    # Secure ownership validation
-    if proc_file.user_id:
-        if not request.user.is_authenticated or request.user.id != proc_file.user_id:
-            return JsonResponse({'error': 'Unauthorized access'}, status=403)
             
-    data = {'status': proc_file.status, 'error': proc_file.error_message}
+    data = {
+        'status': proc_file.status,
+        'error': proc_file.error_message,
+        'file_type': proc_file.file_type or 'pdf'
+    }
     if proc_file.status == 'completed':
         data['download_url'] = f'/download/{proc_file.id}/'
         data['filename'] = proc_file.filename

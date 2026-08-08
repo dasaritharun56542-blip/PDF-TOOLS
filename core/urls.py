@@ -8,6 +8,7 @@ urlpatterns = [
     path('dashboard/', views.dashboard, name='dashboard'),
     path('tool/<str:tool_slug>/', views.tool_detail, name='tool_detail'),
     path('process/<str:tool_slug>/', views.process_tool, name='process_tool'),
+    path('process/', views.process_tool, name='process_tool_generic'),
     path('status/<uuid:task_id>/', views.get_status, name='get_status'),
     path('download/<int:file_id>/', views.download_file, name='download_file'),
     path('history/', views.history, name='history'),
