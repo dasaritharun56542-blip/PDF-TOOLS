@@ -14,9 +14,30 @@ export default function Dashboard() {
   const fetchDashboardData = async () => {
     try {
       const res = await axios.get('/api/dashboard-data/');
-      setData(res.data);
+      if (res.data) {
+        setData(res.data);
+      }
     } catch (err) {
       console.error('Failed to load dashboard data', err);
+      // Safe fallback data to ensure UI always renders seamlessly
+      setData({
+        total: 0,
+        file_count: 0,
+        trial_used: false,
+        processed_files: [],
+        uploaded_files: [],
+        plan_name: 'Free Forever',
+        is_premium: false,
+        days_left: 0,
+        trial_active: false,
+        trial_days_remaining: 0,
+        today_duration_seconds: 0,
+        today_remaining_seconds: 1800,
+        today_remaining_minutes: 30,
+        expiry_date: null,
+        payments: [],
+        admin_stats: null
+      });
     } finally {
       setLoading(false);
     }
@@ -57,7 +78,7 @@ export default function Dashboard() {
     }
   }, [user, authLoading, navigate]);
 
-  if (authLoading || loading || !data) {
+  if (authLoading || (loading && !data)) {
     return (
       <div className="container py-5 text-center">
         <div className="spinner-border text-primary" role="status"></div>
@@ -67,23 +88,23 @@ export default function Dashboard() {
   }
 
   const {
-    total,
-    processed_files,
-    uploaded_files,
-    file_count,
-    trial_used,
-    plan_name,
-    is_premium,
-    days_left,
-    trial_active,
-    trial_days_remaining,
-    today_duration_seconds,
-    today_remaining_seconds,
-    today_remaining_minutes,
-    expiry_date,
-    payments,
-    admin_stats
-  } = data;
+    total = 0,
+    processed_files = [],
+    uploaded_files = [],
+    file_count = 0,
+    trial_used = false,
+    plan_name = 'Free Forever',
+    is_premium = false,
+    days_left = 0,
+    trial_active = false,
+    trial_days_remaining = 0,
+    today_duration_seconds = 0,
+    today_remaining_seconds = 1800,
+    today_remaining_minutes = 30,
+    expiry_date = null,
+    payments = [],
+    admin_stats = null
+  } = data || {};
 
   return (
     <div className="container py-5">

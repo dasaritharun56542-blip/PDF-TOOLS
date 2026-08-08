@@ -474,8 +474,10 @@ def dashboard(request):
     }
     return render(request, 'dashboard.html', stats)
 
-@login_required
 def api_dashboard_data(request):
+    if not request.user.is_authenticated:
+        return JsonResponse({'error': 'Unauthorized: Please log in'}, status=401)
+        
     from django.contrib.auth.models import User
     from accounts.models import Profile, Subscription, Payment, Invoice, DailyUsage
     from django.utils import timezone
