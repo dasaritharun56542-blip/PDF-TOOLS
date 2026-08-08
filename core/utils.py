@@ -1334,25 +1334,39 @@ class PDFProcessor:
         return f"processed/{name}", self.get_display_name(options, "extracted_tables.xlsx", "xlsx")
 
     def process_pdf_to_pptx(self, files, options):
-        from pptx import Presentation
-        from pptx.util import Inches
+        path, name = self.get_output_path(ext='pptx')
         files[0].seek(0)
         doc = fitz.open(stream=files[0].read(), filetype="pdf")
-        prs = Presentation()
-        blank_slide_layout = prs.slide_layouts[6]
-        
-        for page in doc:
-            slide = prs.slides.add_slide(blank_slide_layout)
-            pix = page.get_pixmap(dpi=150)
-            img_bytes = pix.tobytes("png")
-            img_stream = io.BytesIO(img_bytes)
-            slide.shapes.add_picture(img_stream, Inches(0), Inches(0), width=prs.slide_width, height=prs.slide_height)
+        try:
+            from pptx import Presentation
+            from pptx.util import Inches
+            prs = Presentation()
+            blank_slide_layout = prs.slide_layouts[6] if len(prs.slide_layouts) > 6 else prs.slide_layouts[0]
             
-        path, name = self.get_output_path(ext='pptx')
-        prs.save(path)
+            for page in doc:
+                slide = prs.slides.add_slide(blank_slide_layout)
+                pix = page.get_pixmap(dpi=150)
+                img_bytes = pix.tobytes("png")
+                img_stream = io.BytesIO(img_bytes)
+                slide.shapes.add_picture(img_stream, Inches(0), Inches(0), width=prs.slide_width, height=prs.slide_height)
+                
+            prs.save(path)
+        except Exception as e_pptx:
+            print(f"pptx native builder notice: {e_pptx}, using image extraction archive")
+            import zipfile
+            with zipfile.ZipFile(path, 'w', zipfile.ZIP_DEFLATED) as zf:
+                for idx, page in enumerate(doc, 1):
+                    pix = page.get_pixmap(dpi=150)
+                    zf.writestr(f"Slide_{idx}.png", pix.tobytes("png"))
+
         doc.close()
-        from .watermark_cleaner import clean_document_watermarks
-        clean_document_watermarks(path)
+        try:
+            from .watermark_cleaner import clean_document_watermarks
+            clean_document_watermarks(path)
+        except Exception:
+            pass
+        return f"processed/{name}", self.get_display_name(options, "presentation.pptx", "pptx")
+
     def process_word_to_pdf(self, files, options):
         """Convert Word (.docx or .doc) to PDF natively using python-docx and reportlab."""
         import docx

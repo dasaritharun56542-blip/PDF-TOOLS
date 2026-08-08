@@ -268,6 +268,12 @@ def process_tool(request, tool_slug=None):
             tool_name=tool_slug
         )
         
+        # Capture options in main thread before spawning background worker
+        options = request.POST.dict()
+        options['original_name'] = proc_file.filename
+        if logo_path:
+            options['logo_path'] = logo_path
+
         # Process immediately in a thread
         import threading
         import time
@@ -291,9 +297,6 @@ def process_tool(request, tool_slug=None):
                     opened_files.append(open(path, 'rb'))
                 
                 # Process
-                options = request.POST.dict()
-                options['original_name'] = proc_file.filename # Carry original name
-                if logo_path: options['logo_path'] = logo_path
                 print(f"DEBUG process_async tool_slug={tool_slug}, options={options}", flush=True)
                 processed_path, filename = processor.handle(tool_slug, opened_files, options)
                 
