@@ -600,9 +600,13 @@ def auth_status(request):
             except Exception:
                 pass
 
+            if not request.session.session_key:
+                request.session.save()
+
             return JsonResponse({
                 'authenticated': True,
                 'google_client_id': client_id,
+                'session_key': request.session.session_key,
                 'user': {
                     'username': request.user.username,
                     'email': request.user.email,

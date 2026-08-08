@@ -29,6 +29,25 @@ axios.defaults.xsrfCookieName = 'csrftoken';
 axios.defaults.xsrfHeaderName = 'X-CSRFToken';
 axios.defaults.withCredentials = true;
 
+// Check for session_key from URL query params or localStorage
+try {
+  const urlParams = new URLSearchParams(window.location.search);
+  const qSession = urlParams.get('session_key');
+  if (qSession) {
+    localStorage.setItem('pdf_powerhouse_session_key', qSession);
+    urlParams.delete('session_key');
+    const newQuery = urlParams.toString();
+    const cleanUrl = window.location.pathname + (newQuery ? '?' + newQuery : '') + window.location.hash;
+    window.history.replaceState({}, document.title, cleanUrl);
+  }
+} catch (e) {}
+
+const storedSessionKey = localStorage.getItem('pdf_powerhouse_session_key');
+if (storedSessionKey) {
+  axios.defaults.headers.common['X-Session-Key'] = storedSessionKey;
+  axios.defaults.headers.common['Authorization'] = 'Bearer ' + storedSessionKey;
+}
+
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
     try {
@@ -48,14 +67,24 @@ export const AuthProvider = ({ children }) => {
 
   const checkAuthStatus = async () => {
     try {
+      const sKey = localStorage.getItem('pdf_powerhouse_session_key');
+      if (sKey) {
+        axios.defaults.headers.common['X-Session-Key'] = sKey;
+        axios.defaults.headers.common['Authorization'] = 'Bearer ' + sKey;
+      }
       const res = await axios.get('/api/auth-status/');
       if (res.data && res.data.google_client_id) {
         setGoogleClientId(res.data.google_client_id);
       }
+      if (res.data && res.data.session_key) {
+        localStorage.setItem('pdf_powerhouse_session_key', res.data.session_key);
+        axios.defaults.headers.common['X-Session-Key'] = res.data.session_key;
+        axios.defaults.headers.common['Authorization'] = 'Bearer ' + res.data.session_key;
+      }
       if (res.data && res.data.authenticated && res.data.user) {
         setUser(res.data.user);
         localStorage.setItem('pdf_powerhouse_user', JSON.stringify(res.data.user));
-      } else if (res.data && res.data.authenticated === false) {
+      } else if (res.data && res.data.authenticated === false && !sKey) {
         setUser(null);
         localStorage.removeItem('pdf_powerhouse_user');
       }
