@@ -859,28 +859,35 @@ export default function ToolDetail() {
           clearInterval(interval);
           setProgressBarWidth(100);
           setStatusText('Conversion completed!');
-          const dlUrl = res.data.download_url;
+          
+          let dlUrl = res.data.download_url || '';
+          if (dlUrl && !dlUrl.startsWith('http')) {
+            const base = (axios.defaults.baseURL || 'https://pdf-tools-1-zr56.onrender.com').replace(/\/+$/, '');
+            dlUrl = `${base}${dlUrl.startsWith('/') ? '' : '/'}${dlUrl}`;
+          }
           const outName = res.data.filename || 'converted.pdf';
           
           setDownloadUrl(dlUrl);
           setOutputFilename(outName);
+          setStatus('completed');
 
           if (dlUrl) {
-            const isPdfOutput = dlUrl.toLowerCase().split('?')[0].endsWith('.pdf') || (res.data.file_type === 'pdf') || !dlUrl.match(/\.(zip|jpg|jpeg|png|json)$/i);
-            if (isPdfOutput) {
-              await loadConvertedPdfPreviews(dlUrl);
+            try {
+              const isPdfOutput = dlUrl.toLowerCase().split('?')[0].endsWith('.pdf') || (res.data.file_type === 'pdf') || !dlUrl.match(/\.(zip|jpg|jpeg|png|json|docx|xlsx|pptx)$/i);
+              if (isPdfOutput && window.pdfjsLib) {
+                loadConvertedPdfPreviews(dlUrl);
+              }
+            } catch (previewErr) {
+              console.warn("Client preview generation skipped:", previewErr);
             }
           }
-          setStatus('completed');
         } else if (serverStatus === 'failed') {
           clearInterval(interval);
           setStatus('failed');
           setErrorMessage(res.data.error || 'The PDF engine failed to convert the files.');
         }
       } catch (err) {
-        clearInterval(interval);
-        setStatus('failed');
-        setErrorMessage('Failed to poll status.');
+        console.warn('Status poll warning:', err);
       }
     }, 1000);
   };
