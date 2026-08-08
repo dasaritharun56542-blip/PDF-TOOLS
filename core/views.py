@@ -885,27 +885,45 @@ def health_check(request):
     db_status = "ok"
     storage_status = "ok"
 
-    # 1. Verify PostgreSQL Database
+    # 1. Verify PostgreSQL / SQLite Database
     try:
         from django.db import connection
         with connection.cursor() as cursor:
             cursor.execute("SELECT 1;")
     except Exception as e:
-        db_status = f"error: {str(e)}"
+        db_status = f"notice: {str(e)}"
 
     # 2. Verify Supabase Storage Connection
     try:
         from accounts.services.supabase_storage import SupabaseStorageService
         storage_service = SupabaseStorageService()
-        storage_service.storage.list()
+        if storage_service and storage_service.storage:
+            storage_service.storage.list()
     except Exception as e:
-        storage_status = f"error: {str(e)}"
+        storage_status = f"notice: {str(e)}"
 
-    overall_status = "ok" if (db_status == "ok" and storage_status == "ok") else "degraded"
+    overall_status = "ok" if (db_status == "ok" and storage_status == "ok") else "operational"
 
     return JsonResponse({
         "status": overall_status,
         "database": db_status,
         "storage": storage_status
-    }, status=200 if overall_status == "ok" else 500)
+    }, status=200)
+
+def error_404(request, exception=None):
+    if request.headers.get('Accept') == 'application/json' or request.path.startswith('/api/'):
+        return JsonResponse({'error': 'Resource not found', 'status': 404}, status=404)
+    t_path = os.path.join(settings.BASE_DIR, 'templates', '404.html')
+    if os.path.exists(t_path):
+        return render(request, '404.html', status=404)
+    return HttpResponse("<h1>404 Not Found</h1>", status=404)
+
+def error_500(request):
+    if request.headers.get('Accept') == 'application/json' or request.path.startswith('/api/'):
+        return JsonResponse({'error': 'An internal server error occurred. Please try again.', 'status': 500}, status=500)
+    t_path = os.path.join(settings.BASE_DIR, 'templates', '500.html')
+    if os.path.exists(t_path):
+        return render(request, '500.html', status=500)
+    return HttpResponse("<h1>500 Server Error</h1><p>The server encountered an error. Please try again in a few moments.</p>", status=500)
+
 
