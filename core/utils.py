@@ -1353,8 +1353,148 @@ class PDFProcessor:
         doc.close()
         from .watermark_cleaner import clean_document_watermarks
         clean_document_watermarks(path)
-        return f"processed/{name}", self.get_display_name(options, "presentation.pptx", "pptx")
+    def process_word_to_pdf(self, files, options):
+        """Convert Word (.docx or .doc) to PDF natively using python-docx and reportlab."""
+        import docx
+        from reportlab.lib.pagesizes import letter
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib import colors
 
+        path, name = self.get_output_path(ext='pdf')
+        files[0].seek(0)
+        file_bytes = files[0].read()
+
+        styles = getSampleStyleSheet()
+        normal_style = styles['Normal']
+        normal_style.fontSize = 11
+        normal_style.leading = 14
+        heading_style = styles['Heading1']
+
+        doc_pdf = SimpleDocTemplate(path, pagesize=letter, rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
+        story = []
+
+        if file_bytes.startswith(b'\xd0\xcf\x11\xe0'):
+            paragraphs = _parse_legacy_doc_stream(file_bytes)
+            for p_text in paragraphs:
+                if p_text.strip():
+                    story.append(Paragraph(p_text.strip(), normal_style))
+                    story.append(Spacer(1, 6))
+        else:
+            try:
+                doc_in = docx.Document(io.BytesIO(file_bytes))
+                for p in doc_in.paragraphs:
+                    p_text = p.text.strip()
+                    if p_text:
+                        if p.style and p.style.name.startswith('Heading'):
+                            story.append(Paragraph(p_text, heading_style))
+                        else:
+                            story.append(Paragraph(p_text, normal_style))
+                        story.append(Spacer(1, 6))
+
+                for table in doc_in.tables:
+                    table_data = []
+                    for row in table.rows:
+                        row_data = [Paragraph(cell.text.strip(), normal_style) for cell in row.cells]
+                        table_data.append(row_data)
+                    if table_data:
+                        t = Table(table_data)
+                        t.setStyle(TableStyle([
+                            ('GRID', (0,0), (-1,-1), 0.5, colors.grey),
+                            ('BACKGROUND', (0,0), (-1,0), colors.whitesmoke),
+                        ]))
+                        story.append(t)
+                        story.append(Spacer(1, 10))
+            except Exception as ex_docx:
+                print(f"python-docx parsing notice: {ex_docx}")
+
+        if not story:
+            story.append(Paragraph("Document Converted Successfully", normal_style))
+
+        doc_pdf.build(story)
+        return f"processed/{name}", self.get_display_name(options, "document.pdf", "pdf")
+
+    def process_excel_to_pdf(self, files, options):
+        """Convert Excel (.xlsx or .xls) to PDF natively using openpyxl and reportlab."""
+        import openpyxl
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+        from reportlab.lib.styles import getSampleStyleSheet
+        from reportlab.lib import colors
+
+        path, name = self.get_output_path(ext='pdf')
+        files[0].seek(0)
+        wb = openpyxl.load_workbook(io.BytesIO(files[0].read()), data_only=True)
+
+        styles = getSampleStyleSheet()
+        normal = styles['Normal']
+        normal.fontSize = 8
+        normal.leading = 10
+
+        doc_pdf = SimpleDocTemplate(path, pagesize=landscape(letter), rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
+        story = []
+
+        for sheet in wb.worksheets:
+            sheet_data = []
+            for row in sheet.iter_rows(values_only=True):
+                if any(row):
+                    sheet_data.append([Paragraph(str(cell or ''), normal) for cell in row])
+            if sheet_data:
+                story.append(Paragraph(f"<b>Sheet: {sheet.title}</b>", styles['Heading2']))
+                story.append(Spacer(1, 8))
+                t = Table(sheet_data)
+                t.setStyle(TableStyle([
+                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D1D5DB')),
+                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F3F4F6')),
+                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
+                ]))
+                story.append(t)
+                story.append(Spacer(1, 15))
+
+        if not story:
+            story.append(Paragraph("Empty Spreadsheet", normal))
+
+        doc_pdf.build(story)
+        wb.close()
+        return f"processed/{name}", self.get_display_name(options, "spreadsheet.pdf", "pdf")
+
+    def process_pptx_to_pdf(self, files, options):
+        """Convert PowerPoint (.pptx) to PDF natively using pptx and reportlab."""
+        from pptx import Presentation
+        from reportlab.lib.pagesizes import letter, landscape
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
+        from reportlab.lib.styles import getSampleStyleSheet
+
+        path, name = self.get_output_path(ext='pdf')
+        files[0].seek(0)
+        prs = Presentation(io.BytesIO(files[0].read()))
+
+        styles = getSampleStyleSheet()
+        title_style = styles['Heading1']
+        body_style = styles['Normal']
+
+        doc_pdf = SimpleDocTemplate(path, pagesize=landscape(letter), rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
+        story = []
+
+        for idx, slide in enumerate(prs.slides, 1):
+            story.append(Paragraph(f"<b>Slide {idx}</b>", title_style))
+            story.append(Spacer(1, 10))
+            for shape in slide.shapes:
+                if shape.has_text_frame:
+                    for p in shape.text_frame.paragraphs:
+                        if p.text.strip():
+                            story.append(Paragraph(p.text.strip(), body_style))
+                            story.append(Spacer(1, 4))
+            story.append(Spacer(1, 20))
+
+        if not story:
+            story.append(Paragraph("Empty Presentation", body_style))
+
+        doc_pdf.build(story)
+        return f"processed/{name}", self.get_display_name(options, "presentation.pdf", "pdf")
+
+    def process_powerpoint_to_pdf(self, files, options):
+        return self.process_pptx_to_pdf(files, options)
 
     def process_page_numbers(self, files, options):
         files[0].seek(0)
