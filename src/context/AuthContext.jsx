@@ -30,8 +30,15 @@ axios.defaults.xsrfHeaderName = 'X-CSRFToken';
 axios.defaults.withCredentials = true;
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState(() => {
+    try {
+      const saved = localStorage.getItem('pdf_powerhouse_user');
+      return saved ? JSON.parse(saved) : null;
+    } catch (e) {
+      return null;
+    }
+  });
+  const [loading, setLoading] = useState(!localStorage.getItem('pdf_powerhouse_user'));
   const [otpSent, setOtpSent] = useState(false);
   const [isSignupFlow, setIsSignupFlow] = useState(false);
   const [otpEmail, setOtpEmail] = useState('');
@@ -45,16 +52,17 @@ export const AuthProvider = ({ children }) => {
       if (res.data && res.data.google_client_id) {
         setGoogleClientId(res.data.google_client_id);
       }
-      if (res.data && res.data.authenticated) {
+      if (res.data && res.data.authenticated && res.data.user) {
         setUser(res.data.user);
-      } else {
+        localStorage.setItem('pdf_powerhouse_user', JSON.stringify(res.data.user));
+      } else if (res.data && res.data.authenticated === false) {
         setUser(null);
+        localStorage.removeItem('pdf_powerhouse_user');
       }
       return res.data;
     } catch (err) {
       console.warn("Auth check warning:", err.message || err);
-      setUser(null);
-      return { authenticated: false };
+      return { authenticated: !!user };
     } finally {
       setLoading(false);
     }
@@ -154,8 +162,9 @@ export const AuthProvider = ({ children }) => {
     clearMessage();
     try {
       const res = await axios.post('/accounts/verify-otp/', { otp });
-      if (res.data.success) {
+      if (res.data.success && res.data.user) {
         setUser(res.data.user);
+        localStorage.setItem('pdf_powerhouse_user', JSON.stringify(res.data.user));
         setOtpSent(false);
         setMessage({ type: 'success', text: 'Authentication successful.' });
         return { success: true };
@@ -188,10 +197,12 @@ export const AuthProvider = ({ children }) => {
     clearMessage();
     try {
       await axios.post('/accounts/logout/');
-      setUser(null);
-      setMessage({ type: 'success', text: 'Logged out successfully.' });
     } catch (err) {
       console.error('Logout failed', err);
+    } finally {
+      setUser(null);
+      localStorage.removeItem('pdf_powerhouse_user');
+      setMessage({ type: 'success', text: 'Logged out successfully.' });
     }
   };
 
@@ -208,8 +219,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       const res = await axios.post('/accounts/google-login/', { access_token: token, credential: token, id_token: token });
-      if (res.data && res.data.success) {
+      if (res.data && res.data.success && res.data.user) {
         setUser(res.data.user);
+        localStorage.setItem('pdf_powerhouse_user', JSON.stringify(res.data.user));
         return { success: true };
       }
       
