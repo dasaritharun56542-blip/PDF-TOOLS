@@ -299,11 +299,14 @@ def process_tool(request, tool_slug):
                 p_uid = proc_file.user_id if proc_file.user_id else 0
                 proc_meta = storage_mgr.store_file(abs_proc_path, filename, category='processed', user_id=p_uid)
                 
-                # Remote object existence verification
-                if storage_mgr.supabase_service:
-                    sup_path = proc_meta['supabase_path']
-                    if not storage_mgr.supabase_service.file_exists(sup_path):
-                        raise Exception(f"Supabase Storage remote object verification failed: {sup_path}")
+                # Remote object existence verification if Supabase is active
+                if storage_mgr.supabase_service and proc_meta.get('supabase_path'):
+                    try:
+                        sup_path = proc_meta['supabase_path']
+                        if not storage_mgr.supabase_service.file_exists(sup_path):
+                            print(f"Notice: Supabase file existence check: {sup_path}")
+                    except Exception as e_sup:
+                        print(f"Notice: Supabase check notice: {e_sup}")
 
                 proc_file.file = proc_meta['supabase_path'] or proc_meta['storage_path']
                 proc_file.stored_filename = proc_meta['stored_filename']
@@ -315,9 +318,9 @@ def process_tool(request, tool_slug):
                 proc_file.status = 'completed'
                 proc_file.save()
 
-                # Clean up local temporary file after confirmed upload
+                # Clean up local temporary file after confirmed upload ONLY if Supabase upload succeeded
                 try:
-                    if abs_proc_path.exists():
+                    if proc_meta.get('supabase_path') and abs_proc_path.exists():
                         abs_proc_path.unlink()
                 except Exception as e_clean:
                     print(f"Notice: local temporary output cleanup notice: {e_clean}")

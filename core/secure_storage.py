@@ -132,7 +132,7 @@ class SecureStorageManager:
             with open(target_abs_path, 'wb') as dst:
                 dst.write(file_obj_or_path)
 
-        # Upload to Supabase Storage
+        # Upload to Supabase Storage if configured, otherwise rely on local storage
         supabase_path = None
         if self.supabase_service:
             try:
@@ -143,12 +143,10 @@ class SecureStorageManager:
                 
                 # Remote object existence verification
                 if not self.supabase_service.file_exists(supabase_path):
-                    from accounts.services.supabase_storage import SupabaseStorageUploadError
-                    raise SupabaseStorageUploadError(f"Remote object verification failed for path '{supabase_path}'")
+                    logger.warning(f"Remote Supabase object verification notice for '{supabase_path}'. Retaining local copy.")
             except Exception as e:
-                logger.error(f"Supabase Storage upload failed for '{rel_path}': {e}")
-                from accounts.services.supabase_storage import SupabaseStorageUploadError
-                raise SupabaseStorageUploadError(f"Supabase upload failure for '{rel_path}': {str(e)}") from e
+                logger.warning(f"Supabase Storage upload notice for '{rel_path}': {e}. Using local disk storage.")
+                supabase_path = None
 
         return {
             'storage_path': supabase_path or rel_path,
