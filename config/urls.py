@@ -17,6 +17,10 @@ urlpatterns = [
 
     path('health/', views.health_check),
     path('api/health/', views.health_check),
+    path('assets/<path:path>', views.serve_spa_asset),
+    path('logo_circle.png', views.serve_spa_asset, {'path': 'logo_circle.png'}),
+    path('favicon.ico', views.serve_spa_asset, {'path': 'favicon.ico'}),
+    path('phonepe_qr.jpg', views.serve_spa_asset, {'path': 'phonepe_qr.jpg'}),
     path('', include('core.urls')),
     path('accounts/', include('accounts.urls')),
     path('accounts/', include('allauth.urls')),

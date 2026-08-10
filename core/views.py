@@ -907,9 +907,48 @@ def health_check(request):
         "storage": storage_status
     }, status=200)
 
+import mimetypes
+from pathlib import Path
+
+def serve_spa_asset(request, path):
+    """
+    Explicitly serves React Vite compiled assets from dist/assets/, dist/, or static/ with correct MIME types.
+    """
+    clean_path = str(path).lstrip('/')
+    candidates = [
+        Path(settings.BASE_DIR) / 'dist' / 'assets' / clean_path,
+        Path(settings.BASE_DIR) / 'dist' / clean_path,
+        Path(settings.BASE_DIR) / 'static' / clean_path,
+        Path(settings.BASE_DIR) / 'staticfiles' / clean_path,
+    ]
+    for p in candidates:
+        if p.exists() and p.is_file():
+            content_type, _ = mimetypes.guess_type(str(p))
+            if str(p).endswith('.js'):
+                content_type = 'application/javascript; charset=utf-8'
+            elif str(p).endswith('.css'):
+                content_type = 'text/css; charset=utf-8'
+            elif str(p).endswith('.svg'):
+                content_type = 'image/svg+xml'
+            elif str(p).endswith('.ico'):
+                content_type = 'image/x-icon'
+            with open(p, 'rb') as f:
+                response = HttpResponse(f.read(), content_type=content_type or 'application/octet-stream')
+                response['Cache-Control'] = 'public, max-age=31536000, immutable'
+                return response
+    return HttpResponse("Asset not found", status=404, content_type="text/plain")
+
+def serve_spa_root_file(request, path):
+    return serve_spa_asset(request, path)
+
 def error_404(request, exception=None):
     if request.headers.get('Accept') == 'application/json' or request.path.startswith('/api/') or request.path.startswith('/process/') or request.path.startswith('/status/'):
         return JsonResponse({'error': 'Resource not found', 'status': 404}, status=404)
+    
+    # Do not return HTML for static asset requests (scripts, styles, images)
+    if any(request.path.lower().endswith(ext) for ext in ['.js', '.css', '.png', '.jpg', '.jpeg', '.svg', '.ico', '.map', '.json', '.woff', '.woff2', '.ttf']):
+        return HttpResponse("Resource not found", status=404, content_type="text/plain")
+
     dist_index = os.path.join(settings.BASE_DIR, 'dist', 'index.html')
     if os.path.exists(dist_index):
         with open(dist_index, 'r', encoding='utf-8') as f:
