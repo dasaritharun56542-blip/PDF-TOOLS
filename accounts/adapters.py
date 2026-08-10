@@ -6,12 +6,14 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     """Custom social account adapter to prevent MultipleObjectsReturned or DoesNotExist errors when DB SocialApp or settings APP are defined."""
     def get_login_redirect_url(self, request):
         from django.conf import settings
-        frontend_url = getattr(settings, 'FRONTEND_URL', 'http://localhost:5173').rstrip('/')
+        frontend_url = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
         session_key = getattr(request.session, 'session_key', None)
         if not session_key:
             request.session.save()
             session_key = request.session.session_key
-        return f"{frontend_url}/dashboard?session_key={session_key}"
+        if frontend_url:
+            return f"{frontend_url}/dashboard?session_key={session_key}"
+        return f"/dashboard?session_key={session_key}"
 
     def get_app(self, request, provider, client_id=None):
         try:
