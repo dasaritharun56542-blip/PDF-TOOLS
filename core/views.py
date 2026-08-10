@@ -38,7 +38,11 @@ def home(request):
     dist_index = os.path.join(settings.BASE_DIR, 'dist', 'index.html')
     if os.path.exists(dist_index):
         with open(dist_index, 'r', encoding='utf-8') as f:
-            return HttpResponse(f.read(), content_type='text/html')
+            resp = HttpResponse(f.read(), content_type='text/html')
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            resp['Pragma'] = 'no-cache'
+            resp['Expires'] = '0'
+            return resp
     
     status_html = """
     <!DOCTYPE html>
@@ -949,7 +953,11 @@ def error_404(request, exception=None):
     dist_index = os.path.join(settings.BASE_DIR, 'dist', 'index.html')
     if os.path.exists(dist_index):
         with open(dist_index, 'r', encoding='utf-8') as f:
-            return HttpResponse(f.read(), content_type='text/html')
+            resp = HttpResponse(f.read(), content_type='text/html')
+            resp['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+            resp['Pragma'] = 'no-cache'
+            resp['Expires'] = '0'
+            return resp
     t_path = os.path.join(settings.BASE_DIR, 'templates', '404.html')
     if os.path.exists(t_path):
         return render(request, '404.html', status=404)
