@@ -16,6 +16,21 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
         return f"/dashboard?session_key={session_key}"
 
     def get_app(self, request, provider, client_id=None):
+        import os
+        if provider == 'google':
+            cid = os.getenv('GOOGLE_CLIENT_ID', '').strip() or '635971381104-v3q2u69tim8oihrjrrcispfsvhjsjim4.apps.googleusercontent.com'
+            secret = os.getenv('GOOGLE_CLIENT_SECRET', '').strip()
+            try:
+                db_app = SocialApp.objects.using('default').filter(provider='google').first()
+                if db_app:
+                    if not secret and db_app.secret:
+                        secret = db_app.secret
+                    if db_app.client_id and not os.getenv('GOOGLE_CLIENT_ID'):
+                        cid = db_app.client_id
+            except Exception:
+                pass
+            return SocialApp(provider='google', name='Google', client_id=cid, secret=secret)
+
         try:
             return super().get_app(request, provider=provider, client_id=client_id)
         except MultipleObjectsReturned:

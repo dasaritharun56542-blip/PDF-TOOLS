@@ -191,11 +191,6 @@ SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
 # Provider Configuration
 SOCIALACCOUNT_PROVIDERS = {
     'google': {
-        'APP': {
-            'client_id': os.getenv('GOOGLE_CLIENT_ID', '').strip(),
-            'secret': os.getenv('GOOGLE_CLIENT_SECRET', '').strip(),
-            'key': ''
-        },
         'SCOPE': [
             'profile',
             'email',
