@@ -183,6 +183,9 @@ AUTHENTICATION_BACKENDS = [
 
 SITE_ID = 1
 SOCIALACCOUNT_LOGIN_ON_GET = True
+SOCIALACCOUNT_AUTO_SIGNUP = True
+SOCIALACCOUNT_EMAIL_VERIFICATION = 'none'
+SOCIALACCOUNT_EMAIL_REQUIRED = False
 SOCIALACCOUNT_ADAPTER = 'accounts.adapters.CustomSocialAccountAdapter'
 
 # Provider Configuration
@@ -229,13 +232,12 @@ SOCIALACCOUNT_PROVIDERS = {
 
 # Redirects
 LOGIN_REDIRECT_URL = '/dashboard'
-ACCOUNT_LOGOUT_REDIRECT_URL = 'home'
-ACCOUNT_LOGIN_METHODS = {'email'}
-ACCOUNT_SIGNUP_FIELDS = ['email*', 'password1*', 'password2*']
-ACCOUNT_EMAIL_VERIFICATION = 'optional'
+ACCOUNT_LOGOUT_REDIRECT_URL = '/'
+ACCOUNT_EMAIL_REQUIRED = True
+ACCOUNT_EMAIL_VERIFICATION = 'none'
 
 # Production Frontend & Domain Configuration
-FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173').strip()
+FRONTEND_URL = os.getenv('FRONTEND_URL', '').strip()
 
 DEFAULT_CSRF_ORIGINS = [
     'http://localhost:5173',
