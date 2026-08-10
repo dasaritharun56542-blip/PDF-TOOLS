@@ -15,7 +15,7 @@ TOOLS = {
     'pdf-to-word': {'name': 'PDF to Word', 'icon': 'bi-file-earmark-word', 'desc': 'Convert PDF to editable DOCX.', 'cat': 'convert_from', 'premium': True},
     'pdf-to-pptx': {'name': 'PDF to PPT', 'icon': 'bi-file-earmark-slides', 'desc': 'Convert PDF to PowerPoint sets.', 'cat': 'convert_from', 'premium': True},
     'pdf-to-jpg': {'name': 'PDF to JPG', 'icon': 'bi-file-earmark-image', 'desc': 'Extract all PDF pages as JPG.', 'cat': 'convert_from'},
-    'image-to-pdf': {'name': 'Image to PDF', 'icon': 'bi-images', 'desc': 'Convert JPG, PNG, WEBP and more into PDF.', 'cat': 'convert_to'},
+    'image-to-pdf': {'name': 'Image to PDF', 'icon': 'bi-images', 'desc': 'Convert JPG, PNG, WEBP and more into PDF.', 'cat': 'edit'},
     'rotate': {'name': 'Rotate PDF', 'icon': 'bi-arrow-repeat', 'desc': 'Rotate pages 90, 180 or 270.', 'cat': 'edit'},
     'watermark': {'name': 'Add Watermark', 'icon': 'bi-patch-check', 'desc': 'Stamp an image or text on PDF.', 'cat': 'edit', 'premium': True},
     'page-numbers': {'name': 'Page Numbers', 'icon': 'bi-list-ol', 'desc': 'Add page numbers with style.', 'cat': 'edit'},
@@ -31,7 +31,6 @@ TOOLS = {
 CATEGORIES = {
     'all': 'All Tools',
     'edit': 'Edit PDF',
-    'convert_to': 'Convert to PDF',
     'convert_from': 'Convert from PDF',
     'optimize': 'Optimize',
     'security': 'Security'

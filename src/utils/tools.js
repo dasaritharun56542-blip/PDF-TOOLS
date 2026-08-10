@@ -1,7 +1,6 @@
 export const CATEGORIES = {
   all: 'All Tools',
   edit: 'Edit PDF',
-  convert_to: 'Convert to PDF',
   convert_from: 'Convert from PDF',
   optimize: 'Optimize',
   security: 'Security'
@@ -11,10 +10,7 @@ export const TOOLS = {
   'merge': { name: 'Merge PDF', icon: 'bi-intersect', desc: 'Combine multiple PDFs into one document.', cat: 'edit' },
   'split': { name: 'Split PDF', icon: 'bi-scissors', desc: 'Extract specific pages or ranges.', cat: 'edit' },
   'compress': { name: 'Compress PDF', icon: 'bi-file-zip', desc: 'Optimize and reduce file size.', cat: 'optimize' },
-  'word-to-pdf': { name: 'Word to PDF', icon: 'bi-file-earmark-word', desc: 'Convert DOCX and DOC to PDF documents.', cat: 'convert_to' },
-  'excel-to-pdf': { name: 'Excel to PDF', icon: 'bi-file-earmark-excel', desc: 'Convert XLSX and XLS spreadsheets to PDF.', cat: 'convert_to' },
-  'pptx-to-pdf': { name: 'PowerPoint to PDF', icon: 'bi-file-earmark-slides', desc: 'Convert PPTX and PPT presentations to PDF.', cat: 'convert_to' },
-  'image-to-pdf': { name: 'Image to PDF', icon: 'bi-images', desc: 'Convert JPG, PNG, WEBP, and TIFF to PDF.', cat: 'convert_to' },
+  'image-to-pdf': { name: 'Image to PDF', icon: 'bi-images', desc: 'Convert JPG, PNG, WEBP, and TIFF to PDF.', cat: 'edit' },
   'pdf-to-word': { name: 'PDF to Word', icon: 'bi-file-earmark-word', desc: 'Convert PDF to editable DOCX format.', cat: 'convert_from', premium: true },
   'pdf-to-pptx': { name: 'PDF to PPT', icon: 'bi-file-earmark-slides', desc: 'Convert PDF to PowerPoint presentation sets.', cat: 'convert_from', premium: true },
   'pdf-to-excel': { name: 'PDF to Excel', icon: 'bi-file-earmark-excel', desc: 'Extract tables from PDF into Excel worksheets.', cat: 'convert_from', premium: true },
@@ -41,7 +37,7 @@ export const TOOLS = {
   'extract-images': { name: 'Extract Images', icon: 'bi-file-earmark-image-fill', desc: 'Extract all embedded images from PDF.', cat: 'convert_from' },
   'flatten-pdf': { name: 'Flatten PDF', icon: 'bi-layers-half', desc: 'Flatten form fields and layers into static PDF.', cat: 'optimize' },
   'pdf-thumbnail-viewer': { name: 'PDF Thumbnail Viewer', icon: 'bi-grid-fill', desc: 'View and export thumbnail grid of PDF pages.', cat: 'optimize' },
-  'convert-image-format': { name: 'Convert Image', icon: 'bi-arrow-left-right', desc: 'Convert image formats between JPG, PNG, WEBP, TIFF, BMP.', cat: 'convert_to' },
+  'convert-image-format': { name: 'Convert Image', icon: 'bi-arrow-left-right', desc: 'Convert image formats between JPG, PNG, WEBP, TIFF, BMP.', cat: 'optimize' },
   'resize-image': { name: 'Resize Image', icon: 'bi-aspect-ratio', desc: 'Resize image dimensions with high fidelity.', cat: 'optimize' },
   'crop-image': { name: 'Crop Image', icon: 'bi-crop', desc: 'Crop images to custom dimensions and aspect ratios.', cat: 'edit' },
   'compress-image': { name: 'Compress Image', icon: 'bi-file-zip-fill', desc: 'Reduce image file size with lossless optimization.', cat: 'optimize' },
