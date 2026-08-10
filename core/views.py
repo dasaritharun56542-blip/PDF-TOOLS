@@ -126,23 +126,32 @@ def tool_info(request, tool_slug):
 def process_tool(request, tool_slug=None):
     if request.method == 'POST':
         tool_slug = tool_slug or request.POST.get('tool') or 'merge'
-        files = request.FILES.getlist('files')
+        files = request.FILES.getlist('files') or request.FILES.getlist('file') or ([request.FILES['files']] if 'files' in request.FILES else ([request.FILES['file']] if 'file' in request.FILES else []))
+        if not files and request.FILES:
+            files = list(request.FILES.values())
         
         if not files:
-            return JsonResponse({'error': 'No files selected'}, status=400)
+            return JsonResponse({'error': 'No files selected for processing. Please select a file and try again.'}, status=400)
 
-        # Enforce subscription limits
+        # Enforce subscription limits & auto-grant free trial
         is_premium = False
         is_trial = False
         is_free_forever = False
         
         if request.user.is_authenticated:
-            from accounts.models import Profile
+            from accounts.models import Profile, Subscription, DailyUsage
             import datetime
             from django.utils import timezone
             
             profile, _ = Profile.objects.using('default').get_or_create(user=request.user)
-            from accounts.models import Subscription
+            
+            # Auto-grant trial if missing
+            if not profile.trial_used:
+                profile.is_pro = True
+                profile.pro_expiry = timezone.now() + datetime.timedelta(days=7)
+                profile.trial_used = True
+                profile.save()
+
             active_sub = Subscription.objects.using('default').filter(
                 user=request.user,
                 is_active=True,
@@ -156,13 +165,11 @@ def process_tool(request, tool_slug=None):
             else:
                 is_free_forever = True
         else:
-            is_free_forever = True
+            # Free tier for guest users with generous access
+            is_free_forever = False
 
         tool = TOOLS.get(tool_slug)
-        if tool:
-            if is_free_forever and tool.get('premium'):
-                return JsonResponse({'error': 'Premium subscription required. Upgrade to unlock this tool.'}, status=403)
-            
+        if tool and request.user.is_authenticated:
             if is_trial:
                 from accounts.models import DailyUsage
                 from django.utils import timezone
@@ -170,7 +177,7 @@ def process_tool(request, tool_slug=None):
                     usage = DailyUsage.objects.using('default').get(user=request.user, date=timezone.now().date())
                     # 30 minutes daily limit
                     if usage.processing_time_seconds >= 1800:
-                        return JsonResponse({'error': 'Daily limit reached. Upgrade to Premium.'}, status=403)
+                        return JsonResponse({'error': 'Daily trial limit reached. Please upgrade to Pro for unlimited processing.'}, status=403)
                 except DailyUsage.DoesNotExist:
                     pass
 
@@ -181,15 +188,15 @@ def process_tool(request, tool_slug=None):
             EXT_MAP = {
                 'pdf': ['.pdf'],
                 'image': ['.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.gif', '.jfif'],
-                'word': ['.docx', '.doc'],
-                'excel': ['.xlsx', '.xls', '.xlsm'],
+                'word': ['.docx', '.doc', '.odt', '.rtf'],
+                'excel': ['.xlsx', '.xls', '.xlsm', '.csv'],
                 'ppt': ['.pptx', '.ppt'],
                 'html': ['.html', '.htm']
             }
             
             if tool_slug in ['image-to-pdf', 'scan-to-pdf', 'ocr-image', 'resize-image', 'crop-image', 'compress-image', 'convert-image-format', 'remove-background']:
                 allowed = EXT_MAP['image']
-            elif tool_slug in ['merge', 'split', 'compress', 'pdf-to-word', 'pdf-to-pptx', 'pdf-to-jpg', 'rotate', 'watermark', 'page-numbers', 'repair', 'protect', 'organize', 'delete-pages', 'extract-pages', 'sign-pdf', 'edit-pdf', 'pdf-to-pdfa', 'ocr-pdf', 'redact-pdf', 'flatten-pdf', 'pdf-metadata-editor', 'compare-pdf']:
+            elif tool_slug in ['merge', 'split', 'compress', 'pdf-to-word', 'pdf-to-pptx', 'pdf-to-excel', 'pdf-to-jpg', 'pdf-to-png', 'rotate', 'watermark', 'page-numbers', 'repair', 'protect', 'unlock', 'organize', 'delete-pages', 'extract-pages', 'sign-pdf', 'edit-pdf', 'pdf-to-pdfa', 'ocr', 'ocr-pdf', 'redact-pdf', 'flatten-pdf', 'pdf-metadata-editor', 'compare-pdf', 'crop-pdf', 'remove-blank-pages', 'reverse-page-order', 'duplicate-pages', 'header-footer', 'extract-images', 'pdf-thumbnail-viewer', 'pdf-to-html']:
                 allowed = EXT_MAP['pdf']
             elif tool_slug == 'word-to-pdf':
                 allowed = EXT_MAP['word']
@@ -212,7 +219,7 @@ def process_tool(request, tool_slug=None):
                 return JsonResponse({'error': f'Invalid format for this tool. Expected: {", ".join(allowed)}'}, status=400)
             
             # Global safety check
-            global_allowed = ('.pdf', '.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.gif', '.jfif', '.docx', '.doc', '.xlsx', '.xls', '.xlsm', '.pptx', '.ppt', '.html', '.htm', '.odt', '.rtf')
+            global_allowed = ('.pdf', '.jpg', '.jpeg', '.png', '.webp', '.bmp', '.tiff', '.gif', '.jfif', '.docx', '.doc', '.xlsx', '.xls', '.xlsm', '.csv', '.pptx', '.ppt', '.html', '.htm', '.odt', '.rtf', '.txt')
             if file_ext not in global_allowed:
                 return JsonResponse({'error': f'Unsupported file type: {file_ext}'}, status=400)
 
@@ -305,31 +312,15 @@ def process_tool(request, tool_slug=None):
                 p_uid = proc_file.user_id if proc_file.user_id else 0
                 proc_meta = storage_mgr.store_file(abs_proc_path, filename, category='processed', user_id=p_uid)
                 
-                # Remote object existence verification if Supabase is active
-                if storage_mgr.supabase_service and proc_meta.get('supabase_path'):
-                    try:
-                        sup_path = proc_meta['supabase_path']
-                        if not storage_mgr.supabase_service.file_exists(sup_path):
-                            print(f"Notice: Supabase file existence check: {sup_path}")
-                    except Exception as e_sup:
-                        print(f"Notice: Supabase check notice: {e_sup}")
-
-                proc_file.file = proc_meta['supabase_path'] or proc_meta['storage_path']
+                proc_file.file = proc_meta['storage_path']
                 proc_file.stored_filename = proc_meta['stored_filename']
-                proc_file.storage_path = proc_meta['supabase_path'] or proc_meta['storage_path']
+                proc_file.storage_path = proc_meta['storage_path']
                 proc_file.checksum = proc_meta['checksum']
                 proc_file.file_size = proc_meta['file_size']
                 proc_file.file_type = proc_meta['file_type']
                 proc_file.filename = filename
                 proc_file.status = 'completed'
                 proc_file.save()
-
-                # Clean up local temporary file after confirmed upload ONLY if Supabase upload succeeded
-                try:
-                    if proc_meta.get('supabase_path') and abs_proc_path.exists():
-                        abs_proc_path.unlink()
-                except Exception as e_clean:
-                    print(f"Notice: local temporary output cleanup notice: {e_clean}")
                 
             except Exception as e:
                 import traceback
@@ -917,8 +908,12 @@ def health_check(request):
     }, status=200)
 
 def error_404(request, exception=None):
-    if request.headers.get('Accept') == 'application/json' or request.path.startswith('/api/'):
+    if request.headers.get('Accept') == 'application/json' or request.path.startswith('/api/') or request.path.startswith('/process/') or request.path.startswith('/status/'):
         return JsonResponse({'error': 'Resource not found', 'status': 404}, status=404)
+    dist_index = os.path.join(settings.BASE_DIR, 'dist', 'index.html')
+    if os.path.exists(dist_index):
+        with open(dist_index, 'r', encoding='utf-8') as f:
+            return HttpResponse(f.read(), content_type='text/html')
     t_path = os.path.join(settings.BASE_DIR, 'templates', '404.html')
     if os.path.exists(t_path):
         return render(request, '404.html', status=404)

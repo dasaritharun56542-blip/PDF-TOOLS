@@ -862,8 +862,8 @@ export default function ToolDetail() {
           
           let dlUrl = res.data.download_url || '';
           if (dlUrl && !dlUrl.startsWith('http')) {
-            const base = (axios.defaults.baseURL || 'https://pdf-tools-1-zr56.onrender.com').replace(/\/+$/, '');
-            dlUrl = `${base}${dlUrl.startsWith('/') ? '' : '/'}${dlUrl}`;
+            const base = (axios.defaults.baseURL || '').replace(/\/+$/, '');
+            dlUrl = base ? `${base}${dlUrl.startsWith('/') ? '' : '/'}${dlUrl}` : dlUrl;
           }
           const outName = res.data.filename || 'converted.pdf';
           

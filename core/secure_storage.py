@@ -132,25 +132,30 @@ class SecureStorageManager:
             with open(target_abs_path, 'wb') as dst:
                 dst.write(file_obj_or_path)
 
-        # Upload to Supabase Storage if configured, otherwise rely on local storage
+        # Asynchronous background sync to Supabase Storage if configured without blocking local pipeline
         supabase_path = None
         if self.supabase_service:
             try:
+                import threading
                 supabase_path = self.get_supabase_storage_path(rel_path, user_id=user_id)
-                with open(target_abs_path, 'rb') as f:
-                    content_type = 'application/pdf' if ext == 'pdf' else None
-                    self.supabase_service.upload_file(f.read(), supabase_path, content_type=content_type, upsert=True)
+                content_type = 'application/pdf' if ext == 'pdf' else None
                 
-                # Remote object existence verification
-                if not self.supabase_service.file_exists(supabase_path):
-                    logger.warning(f"Remote Supabase object verification notice for '{supabase_path}'. Retaining local copy.")
+                def _bg_upload(p_abs, p_sup, c_type):
+                    try:
+                        if os.path.exists(p_abs):
+                            with open(p_abs, 'rb') as f:
+                                self.supabase_service.upload_file(f.read(), p_sup, content_type=c_type, upsert=True)
+                    except Exception as e_bg:
+                        logger.warning(f"Async Supabase background sync notice for '{p_sup}': {e_bg}")
+                
+                threading.Thread(target=_bg_upload, args=(str(target_abs_path), supabase_path, content_type), daemon=True).start()
             except Exception as e:
-                logger.warning(f"Supabase Storage upload notice for '{rel_path}': {e}. Using local disk storage.")
+                logger.warning(f"Supabase Storage path notice for '{rel_path}': {e}. Using local disk storage.")
                 supabase_path = None
 
         return {
-            'storage_path': supabase_path or rel_path,
-            'stored_filename': os.path.basename(supabase_path) if supabase_path else stored_filename,
+            'storage_path': rel_path,
+            'stored_filename': stored_filename,
             'checksum': checksum,
             'file_size': file_size,
             'file_type': ext,
@@ -160,8 +165,17 @@ class SecureStorageManager:
 
     def get_file_bytes(self, relative_storage_path, user_id=None) -> bytes:
         """
-        Retrieves file bytes. Attempts download from Supabase Storage first, then falls back to local disk.
+        Retrieves file bytes. Checks local disk first for sub-millisecond instant retrieval,
+        then falls back to remote Supabase Storage if needed.
         """
+        try:
+            abs_path = self.get_absolute_path(relative_storage_path)
+            if abs_path.exists() and abs_path.stat().st_size > 0:
+                with open(abs_path, 'rb') as f:
+                    return f.read()
+        except Exception:
+            pass
+
         if self.supabase_service:
             try:
                 sup_path = self.get_supabase_storage_path(relative_storage_path, user_id=user_id)
@@ -170,9 +184,9 @@ class SecureStorageManager:
                 elif self.supabase_service.file_exists(str(relative_storage_path).replace('\\', '/').lstrip('/')):
                     return self.supabase_service.download_file(str(relative_storage_path).replace('\\', '/').lstrip('/'))
             except Exception as e:
-                logger.warning(f"Supabase Storage download fallback to local disk for '{relative_storage_path}': {e}")
+                logger.warning(f"Supabase Storage download fallback for '{relative_storage_path}': {e}")
 
-        # Local Fallback
+        # Fallback to local path
         abs_path = self.get_absolute_path(relative_storage_path)
         if not abs_path.exists():
             raise FileNotFoundError(f"File not found in local or remote storage: {relative_storage_path}")

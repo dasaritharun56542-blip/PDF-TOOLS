@@ -140,6 +140,8 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_DIRS = [BASE_DIR / 'static']
+if (BASE_DIR / 'dist').exists():
+    STATICFILES_DIRS.append(BASE_DIR / 'dist')
 
 MEDIA_URL = '/media/'
 SECURE_ADMIN_STORAGE_DIR = Path(os.getenv('SECURE_ADMIN_STORAGE_DIR', Path.home() / '.secure_admin_storage'))

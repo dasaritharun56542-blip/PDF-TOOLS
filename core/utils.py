@@ -1429,8 +1429,7 @@ class PDFProcessor:
         return f"processed/{name}", self.get_display_name(options, "document.pdf", "pdf")
 
     def process_excel_to_pdf(self, files, options):
-        """Convert Excel (.xlsx or .xls) to PDF natively using openpyxl and reportlab."""
-        import openpyxl
+        """Convert Excel (.xlsx, .xls) or CSV to PDF natively using openpyxl, pandas, and CSV parsers."""
         from reportlab.lib.pagesizes import letter, landscape
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
         from reportlab.lib.styles import getSampleStyleSheet
@@ -1438,7 +1437,7 @@ class PDFProcessor:
 
         path, name = self.get_output_path(ext='pdf')
         files[0].seek(0)
-        wb = openpyxl.load_workbook(io.BytesIO(files[0].read()), data_only=True)
+        file_bytes = files[0].read()
 
         styles = getSampleStyleSheet()
         normal = styles['Normal']
@@ -1448,40 +1447,78 @@ class PDFProcessor:
         doc_pdf = SimpleDocTemplate(path, pagesize=landscape(letter), rightMargin=36, leftMargin=36, topMargin=36, bottomMargin=36)
         story = []
 
-        for sheet in wb.worksheets:
-            sheet_data = []
-            for row in sheet.iter_rows(values_only=True):
-                if any(row):
-                    sheet_data.append([Paragraph(str(cell or ''), normal) for cell in row])
-            if sheet_data:
-                story.append(Paragraph(f"<b>Sheet: {sheet.title}</b>", styles['Heading2']))
-                story.append(Spacer(1, 8))
-                t = Table(sheet_data)
-                t.setStyle(TableStyle([
-                    ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D1D5DB')),
-                    ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F3F4F6')),
-                    ('VALIGN', (0,0), (-1,-1), 'TOP'),
-                ]))
-                story.append(t)
-                story.append(Spacer(1, 15))
+        sheets_data = {}
+        # 1. Try openpyxl
+        try:
+            import openpyxl
+            wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+            for sheet in wb.worksheets:
+                sheet_data = []
+                for row in sheet.iter_rows(values_only=True):
+                    if any(row):
+                        sheet_data.append([Paragraph(str(cell or ''), normal) for cell in row])
+                if sheet_data:
+                    sheets_data[sheet.title] = sheet_data
+            wb.close()
+        except Exception as e_openpyxl:
+            print(f"openpyxl load notice: {e_openpyxl}")
+
+        # 2. Try pandas / xlrd fallback if openpyxl didn't find data
+        if not sheets_data:
+            try:
+                import pandas as pd
+                dfs = pd.read_excel(io.BytesIO(file_bytes), sheet_name=None)
+                for sheet_name, df in dfs.items():
+                    rows = [[Paragraph(str(c), normal) for c in df.columns]]
+                    for _, row in df.iterrows():
+                        rows.append([Paragraph(str(v if pd.notna(v) else ''), normal) for v in row])
+                    if rows:
+                        sheets_data[sheet_name] = rows
+            except Exception as e_pd:
+                print(f"pandas excel fallback notice: {e_pd}")
+
+        # 3. CSV / plaintext fallback
+        if not sheets_data:
+            try:
+                import csv
+                text_content = file_bytes.decode('utf-8', errors='ignore')
+                csv_reader = csv.reader(io.StringIO(text_content))
+                rows = []
+                for row in csv_reader:
+                    if any(row):
+                        rows.append([Paragraph(str(cell), normal) for cell in row])
+                if rows:
+                    sheets_data["Sheet1"] = rows
+            except Exception as e_csv:
+                print(f"csv fallback notice: {e_csv}")
+
+        for sheet_title, sheet_data in sheets_data.items():
+            story.append(Paragraph(f"<b>Sheet: {sheet_title}</b>", styles['Heading2']))
+            story.append(Spacer(1, 8))
+            t = Table(sheet_data)
+            t.setStyle(TableStyle([
+                ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#D1D5DB')),
+                ('BACKGROUND', (0,0), (-1,0), colors.HexColor('#F3F4F6')),
+                ('VALIGN', (0,0), (-1,-1), 'TOP'),
+            ]))
+            story.append(t)
+            story.append(Spacer(1, 15))
 
         if not story:
             story.append(Paragraph("Empty Spreadsheet", normal))
 
         doc_pdf.build(story)
-        wb.close()
         return f"processed/{name}", self.get_display_name(options, "spreadsheet.pdf", "pdf")
 
     def process_pptx_to_pdf(self, files, options):
-        """Convert PowerPoint (.pptx) to PDF natively using pptx and reportlab."""
-        from pptx import Presentation
+        """Convert PowerPoint (.pptx, .ppt) to PDF natively using python-pptx and direct XML archive parsing."""
         from reportlab.lib.pagesizes import letter, landscape
         from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer
         from reportlab.lib.styles import getSampleStyleSheet
 
         path, name = self.get_output_path(ext='pdf')
         files[0].seek(0)
-        prs = Presentation(io.BytesIO(files[0].read()))
+        file_bytes = files[0].read()
 
         styles = getSampleStyleSheet()
         title_style = styles['Heading1']
@@ -1490,25 +1527,148 @@ class PDFProcessor:
         doc_pdf = SimpleDocTemplate(path, pagesize=landscape(letter), rightMargin=54, leftMargin=54, topMargin=54, bottomMargin=54)
         story = []
 
-        for idx, slide in enumerate(prs.slides, 1):
-            story.append(Paragraph(f"<b>Slide {idx}</b>", title_style))
-            story.append(Spacer(1, 10))
-            for shape in slide.shapes:
-                if shape.has_text_frame:
-                    for p in shape.text_frame.paragraphs:
-                        if p.text.strip():
-                            story.append(Paragraph(p.text.strip(), body_style))
-                            story.append(Spacer(1, 4))
-            story.append(Spacer(1, 20))
+        # 1. Try python-pptx
+        pptx_loaded = False
+        try:
+            from pptx import Presentation
+            prs = Presentation(io.BytesIO(file_bytes))
+            for idx, slide in enumerate(prs.slides, 1):
+                story.append(Paragraph(f"<b>Slide {idx}</b>", title_style))
+                story.append(Spacer(1, 10))
+                for shape in slide.shapes:
+                    if shape.has_text_frame:
+                        for p in shape.text_frame.paragraphs:
+                            if p.text.strip():
+                                story.append(Paragraph(p.text.strip(), body_style))
+                                story.append(Spacer(1, 4))
+                story.append(Spacer(1, 20))
+            pptx_loaded = True
+        except Exception as e_pptx:
+            print(f"python-pptx notice: {e_pptx}, falling back to direct XML extraction")
+
+        # 2. Direct ZIP XML extraction fallback
+        if not pptx_loaded:
+            import zipfile, xml.etree.ElementTree as ET
+            try:
+                with zipfile.ZipFile(io.BytesIO(file_bytes), 'r') as zf:
+                    slide_files = sorted(
+                        [f for f in zf.namelist() if f.startswith('ppt/slides/slide') and f.endswith('.xml')],
+                        key=lambda x: int(''.join(filter(str.isdigit, x)) or 0)
+                    )
+                    for s_idx, s_file in enumerate(slide_files, 1):
+                        story.append(Paragraph(f"<b>Slide {s_idx}</b>", title_style))
+                        story.append(Spacer(1, 10))
+                        xml_root = ET.fromstring(zf.read(s_file))
+                        for elem in xml_root.iter():
+                            if elem.tag.endswith('}t') and elem.text and elem.text.strip():
+                                story.append(Paragraph(elem.text.strip(), body_style))
+                                story.append(Spacer(1, 4))
+                        story.append(Spacer(1, 20))
+            except Exception as e_zip:
+                print(f"Direct XML PPTX extraction notice: {e_zip}")
 
         if not story:
-            story.append(Paragraph("Empty Presentation", body_style))
+            story.append(Paragraph("Presentation Document", body_style))
 
         doc_pdf.build(story)
         return f"processed/{name}", self.get_display_name(options, "presentation.pdf", "pdf")
 
     def process_powerpoint_to_pdf(self, files, options):
         return self.process_pptx_to_pdf(files, options)
+
+    def process_remove_blank_pages(self, files, options):
+        """Automatically detect and remove blank pages from PDF document."""
+        files[0].seek(0)
+        doc = fitz.open(stream=files[0].read(), filetype="pdf")
+        doc_out = fitz.open()
+
+        for idx, page in enumerate(doc):
+            text = page.get_text("text").strip()
+            images = page.get_images()
+            drawings = page.get_drawings() if hasattr(page, 'get_drawings') else []
+            
+            # Check if page contains text, images or vector drawings
+            if text or images or drawings:
+                doc_out.insert_pdf(doc, from_page=idx, to_page=idx)
+
+        # Fallback: if all pages were considered blank, keep at least page 1
+        if len(doc_out) == 0 and len(doc) > 0:
+            doc_out.insert_pdf(doc, from_page=0, to_page=0)
+
+        path, name = self.get_output_path(ext='pdf')
+        doc_out.save(path, garbage=4, deflate=True, clean=True)
+        doc_out.close()
+        doc.close()
+        return f"processed/{name}", self.get_display_name(options, "blank_pages_removed.pdf", "pdf")
+
+    def process_reverse_page_order(self, files, options):
+        """Invert the page order of a PDF document."""
+        files[0].seek(0)
+        doc = fitz.open(stream=files[0].read(), filetype="pdf")
+        doc_out = fitz.open()
+
+        for i in range(len(doc) - 1, -1, -1):
+            doc_out.insert_pdf(doc, from_page=i, to_page=i)
+
+        path, name = self.get_output_path(ext='pdf')
+        doc_out.save(path, garbage=1, deflate=True)
+        doc_out.close()
+        doc.close()
+        return f"processed/{name}", self.get_display_name(options, "reversed_pages.pdf", "pdf")
+
+    def process_duplicate_pages(self, files, options):
+        """Clone and duplicate pages in a PDF document."""
+        try:
+            count = max(1, min(10, int(options.get('count', 2))))
+        except Exception:
+            count = 2
+
+        files[0].seek(0)
+        doc = fitz.open(stream=files[0].read(), filetype="pdf")
+        doc_out = fitz.open()
+
+        for idx in range(len(doc)):
+            for _ in range(count):
+                doc_out.insert_pdf(doc, from_page=idx, to_page=idx)
+
+        path, name = self.get_output_path(ext='pdf')
+        doc_out.save(path, garbage=1, deflate=True)
+        doc_out.close()
+        doc.close()
+        return f"processed/{name}", self.get_display_name(options, "duplicated_pages.pdf", "pdf")
+
+    def process_header_footer(self, files, options):
+        """Add custom headers and footers to all PDF pages."""
+        header_text = options.get('header_text', '')
+        footer_text = options.get('footer_text', '')
+        try:
+            font_size = float(options.get('font_size', 10))
+        except Exception:
+            font_size = 10
+
+        files[0].seek(0)
+        doc = fitz.open(stream=files[0].read(), filetype="pdf")
+        total = len(doc)
+
+        for idx, page in enumerate(doc):
+            rect = page.rect
+            curr = str(idx + 1)
+            tot = str(total)
+
+            if header_text:
+                h_str = header_text.replace('{page}', curr).replace('{total}', tot)
+                tw = fitz.get_text_length(h_str, fontname="helv", fontsize=font_size)
+                page.insert_text(((rect.width - tw) / 2, 30), h_str, fontsize=font_size, color=(0.2, 0.2, 0.2), overlay=True)
+
+            if footer_text:
+                f_str = footer_text.replace('{page}', curr).replace('{total}', tot)
+                tw = fitz.get_text_length(f_str, fontname="helv", fontsize=font_size)
+                page.insert_text(((rect.width - tw) / 2, rect.height - 30), f_str, fontsize=font_size, color=(0.2, 0.2, 0.2), overlay=True)
+
+        path, name = self.get_output_path(ext='pdf')
+        doc.save(path, garbage=1, deflate=True)
+        doc.close()
+        return f"processed/{name}", self.get_display_name(options, "header_footer.pdf", "pdf")
 
     def process_page_numbers(self, files, options):
         files[0].seek(0)

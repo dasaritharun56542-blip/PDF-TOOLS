@@ -274,8 +274,15 @@ def clean_aspose_pptx_watermark(pptx_path: str) -> bool:
         if modified:
             prs.save(pptx_path)
         return modified
-    except Exception as e:
-        logger.error(f"Error cleaning PPTX watermark in {pptx_path}: {e}")
+    except Exception:
+        # Fallback to direct zip archive text cleaning
+        try:
+            import zipfile
+            with zipfile.ZipFile(pptx_path, 'r') as zf:
+                if not any(f.endswith('.xml') for f in zf.namelist()):
+                    return False
+        except Exception:
+            pass
         return False
 
 

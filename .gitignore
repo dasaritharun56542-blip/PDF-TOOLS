@@ -1,7 +1,5 @@
 # Node / Dependencies
 node_modules/
-dist/
-dist-ssr/
 *.local
 
 # Python / Virtual Environment

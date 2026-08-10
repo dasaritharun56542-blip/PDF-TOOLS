@@ -21,13 +21,6 @@ export function getCookie(name) {
 
 // Setup Axios defaults to pass CSRF and session cookies across domains
 let API_BASE_URL = import.meta.env.VITE_API_URL || '';
-if (!API_BASE_URL) {
-  if (typeof window !== 'undefined' && (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')) {
-    API_BASE_URL = '';
-  } else {
-    API_BASE_URL = 'https://pdf-tools-1-zr56.onrender.com';
-  }
-}
 if (API_BASE_URL && API_BASE_URL.endsWith('/')) {
   API_BASE_URL = API_BASE_URL.slice(0, -1);
 }
