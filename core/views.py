@@ -12,8 +12,6 @@ TOOLS = {
     'merge': {'name': 'Merge PDF', 'icon': 'bi-intersect', 'desc': 'Combine multiple PDFs into one document.', 'cat': 'edit'},
     'split': {'name': 'Split PDF', 'icon': 'bi-scissors', 'desc': 'Extract specific pages or ranges.', 'cat': 'edit'},
     'compress': {'name': 'Compress PDF', 'icon': 'bi-file-zip', 'desc': 'Optimize and reduce file size.', 'cat': 'optimize'},
-    'pdf-to-word': {'name': 'PDF to Word', 'icon': 'bi-file-earmark-word', 'desc': 'Convert PDF to editable DOCX.', 'cat': 'convert_from', 'premium': True},
-    'pdf-to-pptx': {'name': 'PDF to PPT', 'icon': 'bi-file-earmark-slides', 'desc': 'Convert PDF to PowerPoint sets.', 'cat': 'convert_from', 'premium': True},
     'pdf-to-jpg': {'name': 'PDF to JPG', 'icon': 'bi-file-earmark-image', 'desc': 'Extract all PDF pages as JPG.', 'cat': 'convert_from'},
     'image-to-pdf': {'name': 'Image to PDF', 'icon': 'bi-images', 'desc': 'Convert JPG, PNG, WEBP and more into PDF.', 'cat': 'edit'},
     'rotate': {'name': 'Rotate PDF', 'icon': 'bi-arrow-repeat', 'desc': 'Rotate pages 90, 180 or 270.', 'cat': 'edit'},
