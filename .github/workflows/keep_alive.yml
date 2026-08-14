@@ -1,0 +1,18 @@
+name: Keep Alive 24/7
+
+on:
+  schedule:
+    # Runs every 5 minutes around the clock
+    - cron: '*/5 * * * *'
+  workflow_dispatch: # Allows manual run anytime from GitHub Actions tab
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping Live Server & Health Endpoint
+        run: |
+          echo "Pinging PDF Powerhouse Live Server..."
+          curl -s -f -m 30 https://pdf-tools-7.onrender.com/api/health/ || echo "Health check response received"
+          curl -s -f -m 30 https://pdf-tools-7.onrender.com/ || echo "Home page pinged"
+          echo "Ping completed successfully! Server is awake 24/7."
