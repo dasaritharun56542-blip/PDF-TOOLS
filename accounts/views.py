@@ -515,8 +515,12 @@ def verify_otp(request):
                 except Exception:
                     pass
 
+                if not request.session.session_key:
+                    request.session.save()
+
                 return JsonResponse({
                     'success': True,
+                    'session_key': request.session.session_key,
                     'user': {
                         'username': user.username,
                         'email': user.email,

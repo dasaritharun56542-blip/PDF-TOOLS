@@ -154,19 +154,26 @@ MAX_UPLOAD_SIZE = 52428800  # 50MB
 DATA_UPLOAD_MAX_MEMORY_SIZE = 52428800
 FILE_UPLOAD_MAX_MEMORY_SIZE = 52428800
 
-EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '').strip().replace(' ', '').replace('"', '').replace("'", "")
-if EMAIL_HOST_PASSWORD == 'your_gmail_app_password_here' or not EMAIL_HOST_PASSWORD:
+# Email Configuration
+raw_email_user = os.getenv('EMAIL_HOST_USER', '').strip().replace('"', '').replace("'", "")
+EMAIL_HOST_USER = raw_email_user or 'pdftoolspowerhouse7@gmail.com'
+
+raw_email_password = os.getenv('EMAIL_HOST_PASSWORD', '').strip().replace(' ', '').replace('"', '').replace("'", "")
+EMAIL_HOST_PASSWORD = raw_email_password or 'jddhljyivljrozbo'
+
+DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER).strip().replace('"', '').replace("'", "")
+SERVER_EMAIL = DEFAULT_FROM_EMAIL
+
+if not EMAIL_HOST_PASSWORD or EMAIL_HOST_PASSWORD == 'your_gmail_app_password_here':
     EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
 else:
     EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'smtp.gmail.com'
-EMAIL_PORT = 465
+
+EMAIL_HOST = os.getenv('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.getenv('EMAIL_PORT', '465'))
 EMAIL_USE_SSL = True
 EMAIL_USE_TLS = False
-EMAIL_TIMEOUT = 30
-
-EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '').strip().replace('"', '').replace("'", "")
-DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER).strip().replace('"', '').replace("'", "")
+EMAIL_TIMEOUT = 15
 
 # Stripe Configuration
 STRIPE_PUBLISHABLE_KEY = os.getenv('STRIPE_PUBLISHABLE_KEY', 'pk_test_your_publishable_key')
