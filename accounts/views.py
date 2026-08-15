@@ -810,6 +810,9 @@ def google_auth_callback_api(request):
 
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
 
+    if not request.session.session_key:
+        request.session.save()
+
     try:
         from accounts.models import AuditLog
         AuditLog.objects.using('default').create(
@@ -822,6 +825,7 @@ def google_auth_callback_api(request):
 
     return JsonResponse({
         'success': True,
+        'session_key': request.session.session_key,
         'user': {
             'username': user.username,
             'email': user.email,

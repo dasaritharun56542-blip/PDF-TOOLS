@@ -249,6 +249,11 @@ export const AuthProvider = ({ children }) => {
 
       const res = await axios.post('/accounts/google-login/', { access_token: token, credential: token, id_token: token });
       if (res.data && res.data.success && res.data.user) {
+        if (res.data.session_key) {
+          localStorage.setItem('pdf_powerhouse_session_key', res.data.session_key);
+          axios.defaults.headers.common['X-Session-Key'] = res.data.session_key;
+          axios.defaults.headers.common['Authorization'] = 'Bearer ' + res.data.session_key;
+        }
         setUser(res.data.user);
         localStorage.setItem('pdf_powerhouse_user', JSON.stringify(res.data.user));
         return { success: true };

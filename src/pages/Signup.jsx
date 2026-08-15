@@ -14,8 +14,9 @@ export default function Signup() {
   const [submitting, setSubmitting] = useState(false);
 
   const handleGoogleLogin = async (e) => {
-    e.preventDefault();
+    if (e) e.preventDefault();
     clearMessage();
+    setSubmitting(true);
     let activeClientId = googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '635971381104-v3q2u69tim8oihrjrrcispfsvhjsjim4.apps.googleusercontent.com';
     if (!activeClientId) {
       try {
@@ -30,29 +31,32 @@ export default function Signup() {
       try {
         const client = window.google.accounts.oauth2.initTokenClient({
           client_id: activeClientId,
-          scope: 'profile email',
+          scope: 'profile email openid',
           callback: async (response) => {
             const token = response.access_token || response.credential || response.id_token;
             if (token) {
-              setSubmitting(true);
               const res = await loginWithGoogle(token);
               setSubmitting(false);
               if (res.success) {
                 navigate('/dashboard');
               }
-            } else if (response.error && response.error !== 'popup_closed_by_user') {
+            } else {
               setSubmitting(false);
-              const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-              window.location.href = `${backendUrl}/accounts/google/login/?process=signup`;
+              if (response.error && response.error !== 'popup_closed_by_user') {
+                const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+                window.location.href = `${backendUrl}/accounts/google/login/?process=signup`;
+              }
             }
           },
           error_callback: (err) => {
             setSubmitting(false);
-            const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-            window.location.href = `${backendUrl}/accounts/google/login/?process=signup`;
+            if (err?.type !== 'popup_closed') {
+              const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+              window.location.href = `${backendUrl}/accounts/google/login/?process=signup`;
+            }
           }
         });
-        client.requestAccessToken();
+        client.requestAccessToken({ prompt: 'select_account' });
         return;
       } catch (err) {
         console.error("Failed to launch Google auth client, redirecting:", err);
