@@ -164,16 +164,16 @@ export default function Pricing() {
         {/* User Status Banner */}
         {user && (
           <div className="row justify-content-center mb-5">
-            <div className="col-lg-10">
+            <div className="col-12 col-lg-10">
               <div
-                className="card border-0 shadow-sm rounded-4 p-4 d-flex flex-row align-items-center justify-content-between"
+                className="card border-0 shadow-sm rounded-4 p-4 d-flex flex-column flex-md-row align-items-center justify-content-between gap-3 text-center text-md-start"
                 style={{
                   background: '#ffffff',
                   borderLeft: '5px solid #4f46e5'
                 }}
               >
-                <div className="d-flex align-items-center">
-                  <div className="bg-primary-subtle p-3 rounded-circle me-3">
+                <div className="d-flex flex-column flex-sm-row align-items-center gap-3">
+                  <div className="bg-primary-subtle p-3 rounded-circle">
                     <i className="bi bi-person-badge fs-3 text-primary"></i>
                   </div>
                   <div>
@@ -190,8 +190,8 @@ export default function Pricing() {
                   </div>
                 </div>
                 {!user.trial_used && (
-                  <div className="text-end">
-                    <button onClick={handleFreeTrial} className="btn btn-success rounded-pill px-4 fw-bold">
+                  <div className="text-center text-md-end w-100 w-md-auto">
+                    <button onClick={handleFreeTrial} className="btn btn-success rounded-pill px-4 fw-bold w-100 w-md-auto">
                       Activate 7 Days Free
                     </button>
                   </div>
@@ -202,9 +202,9 @@ export default function Pricing() {
         )}
 
         {/* 5 Official Subscription Plan Cards */}
-        <div className="row g-4 justify-content-center">
+        <div className="pricing-cards-grid">
           {plans.map((plan) => (
-            <div key={plan.id} className="col-md-6 col-lg-4 col-xl-2.4" style={{ flex: '0 0 auto', width: '20%' }} data-aos="zoom-in">
+            <div key={plan.id} className="pricing-card-col" data-aos="zoom-in">
               <div className={`card pricing-card shadow-sm ${plan.id === '1_month' ? 'featured' : ''}`}>
                 <div className="p-4 text-center">
                   <div className="mb-3" style={{ minHeight: '26px' }}>
@@ -442,11 +442,36 @@ export default function Pricing() {
       )}
 
       <style dangerouslySetInnerHTML={{__html: `
+        .pricing-cards-grid {
+            display: grid;
+            grid-template-columns: repeat(5, minmax(0, 1fr));
+            gap: 1.25rem;
+            align-items: stretch;
+            width: 100%;
+        }
         @media (max-width: 1200px) {
-          .col-xl-2\.4 { width: 50% !important; }
+            .pricing-cards-grid {
+                grid-template-columns: repeat(3, minmax(0, 1fr));
+                gap: 1.25rem;
+            }
         }
         @media (max-width: 768px) {
-          .col-xl-2\.4 { width: 100% !important; }
+            .pricing-cards-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+                gap: 1rem;
+            }
+        }
+        @media (max-width: 576px) {
+            .pricing-cards-grid {
+                grid-template-columns: 1fr; /* Full-width vertical cards on mobile */
+                gap: 1.5rem;
+            }
+        }
+        .pricing-card-col {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
         }
         .pricing-header {
             background: radial-gradient(circle at top, rgba(79, 70, 229, 0.08) 0%, transparent 70%);
