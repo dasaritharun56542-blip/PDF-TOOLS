@@ -1,4 +1,4 @@
-import stripe, os, datetime, time, json, secrets, requests, hashlib, logging
+import stripe, os, datetime, time, json, secrets, requests, hashlib, logging, urllib.parse
 from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate
@@ -66,7 +66,6 @@ def plan_details(request):
             payment = Payment.objects.using('default').get(order_id=order_id)
             plan = payment.plan
             upi_id = os.getenv('UPI_ID', '9110396906@ybl')
-            import urllib.parse
             plan_name = plan.name if plan else 'Pro Plan'
             formatted_amount = f"{float(payment.amount):.2f}"
             clean_tn = "ProPlan"
