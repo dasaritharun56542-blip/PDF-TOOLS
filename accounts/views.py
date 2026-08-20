@@ -661,7 +661,7 @@ def google_auth_callback_api(request):
     if not access_token:
         return JsonResponse({'error': 'Missing access token or credential'}, status=400)
 
-    client_id = settings.SOCIALACCOUNT_PROVIDERS.get('google', {}).get('APP', {}).get('client_id', '').strip()
+    client_id = get_google_client_id()
 
     # Verify token & fetch user profile from Google using robust methods
     google_info = None
