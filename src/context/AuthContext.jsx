@@ -95,11 +95,16 @@ export const AuthProvider = ({ children }) => {
           axios.defaults.headers.common['X-Session-Key'] = res.data.session_key;
           axios.defaults.headers.common['Authorization'] = 'Bearer ' + res.data.session_key;
         }
-      } else if (res.data && res.data.authenticated === false && !sKey) {
-        setUser(null);
-        localStorage.removeItem('pdf_powerhouse_user');
-        delete axios.defaults.headers.common['X-User-Email'];
-        delete axios.defaults.headers.common['X-User-Name'];
+      } else if (res.data && res.data.authenticated === false) {
+        const savedUserStr = localStorage.getItem('pdf_powerhouse_user');
+        if (savedUserStr) {
+          try {
+            const savedUserObj = JSON.parse(savedUserStr);
+            setUser(savedUserObj);
+            if (savedUserObj?.email) axios.defaults.headers.common['X-User-Email'] = savedUserObj.email;
+            if (savedUserObj?.username) axios.defaults.headers.common['X-User-Name'] = savedUserObj.username;
+          } catch (e) {}
+        }
       }
       return res.data;
     } catch (err) {

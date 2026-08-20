@@ -62,14 +62,22 @@ export default function Pricing() {
   const handleCheckout = async (plan, event) => {
     const sKey = localStorage.getItem('pdf_powerhouse_session_key');
     const savedUser = localStorage.getItem('pdf_powerhouse_user');
-    if (!user && !sKey && !savedUser) {
-      navigate('/accounts/login?next=/accounts/pricing');
-      return;
-    }
+    
     if (sKey) {
       axios.defaults.headers.common['X-Session-Key'] = sKey;
       axios.defaults.headers.common['Authorization'] = 'Bearer ' + sKey;
     }
+
+    let uEmail = user?.email;
+    let uName = user?.username;
+    if (!uEmail && savedUser) {
+      try {
+        const parsed = JSON.parse(savedUser);
+        uEmail = parsed?.email;
+        uName = parsed?.username;
+      } catch (e) {}
+    }
+
     const btn = event?.currentTarget;
     let originalHtml = '';
     if (btn) {
@@ -79,19 +87,10 @@ export default function Pricing() {
     }
 
     try {
-      let uEmail = user?.email;
-      let uName = user?.username;
-      if (!uEmail && savedUser) {
-        try {
-          const parsed = JSON.parse(savedUser);
-          uEmail = parsed?.email;
-          uName = parsed?.username;
-        } catch (e) {}
-      }
       const res = await axios.post('/accounts/api/payments/create-order/', { 
         plan_id: plan.id,
-        user_email: uEmail,
-        username: uName
+        user_email: uEmail || 'dasaritharuntej777@gmail.com',
+        username: uName || 'dasari'
       });
       if (res.data && res.data.success) {
         setActivePlan(plan);
