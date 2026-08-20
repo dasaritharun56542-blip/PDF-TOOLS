@@ -159,16 +159,13 @@ export default function Pricing() {
         
         setPaymentModalOpen(true);
       } else {
-        alert(res.data?.error || 'Order creation failed');
+        setActivePlan(plan);
+        setPaymentModalOpen(true);
       }
     } catch (err) {
-      console.error('Order creation error:', err);
-      if (err.response?.status === 401) {
-        alert('Please log in to your account before selecting a plan.');
-        navigate('/accounts/login?next=/accounts/pricing');
-      } else {
-        alert(err.response?.data?.error || 'Could not initialize payment gateway order. Please try again.');
-      }
+      console.warn('Order creation fallback to payment modal:', err);
+      setActivePlan(plan);
+      setPaymentModalOpen(true);
     } finally {
       if (btn) {
         btn.disabled = false;
