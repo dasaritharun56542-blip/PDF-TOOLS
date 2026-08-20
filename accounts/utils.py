@@ -227,10 +227,10 @@ def activate_free_trial(user):
         now = timezone.now()
         end_date = now + datetime.timedelta(days=7)
         
-        # 1. Update Profile
-        profile.is_pro = True
-        profile.pro_expiry = end_date
         profile.trial_used = True
+        if not profile.pro_expiry or profile.pro_expiry < end_date:
+            profile.is_pro = True
+            profile.pro_expiry = end_date
         profile.save()
         
         # 2. Update or Create Subscription (ensure plan=None)
@@ -239,13 +239,13 @@ def activate_free_trial(user):
             plan=None,
             defaults={
                 'start_date': now,
-                'end_date': end_date,
+                'end_date': profile.pro_expiry,
                 'is_active': True
             }
         )
         if not created:
             sub.start_date = now
-            sub.end_date = end_date
+            sub.end_date = profile.pro_expiry
             sub.is_active = True
             sub.save()
             
@@ -253,5 +253,5 @@ def activate_free_trial(user):
         AuditLog.objects.create(
             user=user,
             action='TRIAL_ACTIVATED',
-            details=f"Free Trial subscription activated automatically for user {user.username} from {now} to {end_date}."
+            details=f"Free Trial subscription processed for user {user.username}."
         )
