@@ -1,11 +1,11 @@
-import stripe, os, datetime, json, secrets, requests, hashlib
+import stripe, os, datetime, time, json, secrets, requests, hashlib, logging
 from django.utils import timezone
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, authenticate
 from django.contrib import messages
 from django.conf import settings
 from django.views.decorators.csrf import csrf_exempt, ensure_csrf_cookie
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, HttpResponseNotFound
 from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required
 from .forms import CustomUserCreationForm, CustomAuthenticationForm
@@ -13,6 +13,7 @@ from .utils import send_otp_email, send_welcome_email, send_login_notification
 from .models import Profile, AuthLog, Plan, Subscription, Payment, Invoice
 from accounts.services.payment_gateway import payment_gateway_service
 
+logger = logging.getLogger(__name__)
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 SUBSCRIPTION_PLANS = [
