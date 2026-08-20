@@ -80,6 +80,59 @@ export default function Pricing() {
         setPaymentSuccess(false);
         setPaymentMessage('');
         
+        // If Razorpay JS SDK is loaded and key is available, launch Razorpay Modal
+        if (window.Razorpay && res.data.key_id) {
+          try {
+            const options = {
+              key: res.data.key_id,
+              amount: res.data.amount_paise || Math.round(res.data.amount * 100),
+              currency: res.data.currency || "INR",
+              name: "PDF Powerhouse",
+              description: `${plan.name} Subscription`,
+              image: "/static/images/logo_circle.png",
+              order_id: res.data.razorpay_order_id,
+              handler: async function (response) {
+                setPaymentModalOpen(true);
+                setSubmittingPayment(true);
+                setPaymentMessage('Verifying payment with Razorpay...');
+                try {
+                  const verifyRes = await axios.post('/accounts/api/payments/verify/', {
+                    order_id: res.data.order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_signature: response.razorpay_signature
+                  });
+                  if (verifyRes.data && verifyRes.data.success && verifyRes.data.status === 'SUCCESS') {
+                    setPaymentSuccess(true);
+                    setPaymentMessage('Payment Confirmed! PRO Activated 🎉');
+                    if (checkAuthStatus) await checkAuthStatus();
+                    setTimeout(() => {
+                      setPaymentModalOpen(false);
+                      navigate(`/accounts/payment-success?order_id=${res.data.order_id}`);
+                    }, 1000);
+                  } else {
+                    setPaymentMessage('Payment pending verification. Check status shortly.');
+                  }
+                } catch (vErr) {
+                  setPaymentMessage('Payment submitted. Verifying session status...');
+                } finally {
+                  setSubmittingPayment(false);
+                }
+              },
+              prefill: {
+                email: user?.email || '',
+                name: user?.username || ''
+              },
+              theme: { color: "#3b82f6" }
+            };
+            const rzp = new window.Razorpay(options);
+            rzp.open();
+            return;
+          } catch (rzpErr) {
+            console.warn("Razorpay launch fallback to UPI modal:", rzpErr);
+          }
+        }
+
         // If official gateway checkout URL is returned, open or redirect
         if (res.data.checkout_url && res.data.checkout_url.startsWith('http')) {
           window.location.href = res.data.checkout_url;
@@ -92,7 +145,12 @@ export default function Pricing() {
       }
     } catch (err) {
       console.error('Order creation error:', err);
-      alert('Could not initialize payment gateway order. Please try again.');
+      if (err.response?.status === 401) {
+        alert('Please log in to your account before selecting a plan.');
+        navigate('/accounts/login?next=/accounts/pricing');
+      } else {
+        alert(err.response?.data?.error || 'Could not initialize payment gateway order. Please try again.');
+      }
     } finally {
       if (btn) {
         btn.disabled = false;

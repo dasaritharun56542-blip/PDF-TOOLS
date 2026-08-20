@@ -1065,16 +1065,32 @@ def process_successful_payment(payment, transaction_id=None):
     except Exception as em:
         pass
 
-@login_required
 @csrf_exempt
 def api_create_payment_order(request):
     """
-    1. Retrieve official plan from server database (NEVER trust frontend price/amount).
-    2. Create cryptographically secure Order ID (PPH-2026-XXXXXX).
-    3. Generate official gateway checkout URL.
+    1. Resolve user authentication from Django session or X-Session-Key header.
+    2. Retrieve official plan from server database (NEVER trust frontend price/amount).
+    3. Create cryptographically secure Order ID (PPH-2026-XXXXXX).
+    4. Generate official gateway checkout URL / Razorpay Order parameters.
     """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
+
+    if not request.user.is_authenticated:
+        session_key = request.headers.get('X-Session-Key') or request.META.get('HTTP_X_SESSION_KEY')
+        if session_key:
+            from django.contrib.sessions.models import Session
+            try:
+                s = Session.objects.get(session_key=session_key)
+                uid = s.get_decoded().get('_auth_user_id')
+                if uid:
+                    user = User.objects.get(pk=uid)
+                    request.user = user
+            except Exception:
+                pass
+
+    if not request.user.is_authenticated:
+        return JsonResponse({'success': False, 'error': 'Please log in to your account before selecting a plan.'}, status=401)
 
     try:
         data = json.loads(request.body)
@@ -1126,29 +1142,34 @@ def api_create_payment_order(request):
     payment = payment_gateway_service.create_order(request.user, plan)
     checkout_res = payment_gateway_service.create_checkout(payment)
 
+    razorpay_key_id = getattr(settings, 'RAZORPAY_KEY_ID', os.getenv('RAZORPAY_KEY_ID', '')).strip()
+
     if checkout_res.get('success'):
         return JsonResponse({
             'success': True,
             'order_id': payment.order_id,
             'plan_name': plan.name,
             'amount': float(payment.amount),
+            'amount_paise': int(round(payment.amount * 100)),
             'currency': payment.currency,
             'checkout_url': checkout_res.get('checkout_url'),
-            'gateway_name': payment.gateway_name
+            'razorpay_order_id': checkout_res.get('razorpay_order_id'),
+            'key_id': checkout_res.get('key_id') or razorpay_key_id,
+            'gateway_name': checkout_res.get('gateway_name', payment.gateway_name)
         })
     else:
-        # Fallback payload with backend-secured parameters if gateway sandbox is in fallback mode
         return JsonResponse({
             'success': True,
             'order_id': payment.order_id,
             'plan_name': plan.name,
             'amount': float(payment.amount),
+            'amount_paise': int(round(payment.amount * 100)),
             'currency': payment.currency,
+            'key_id': razorpay_key_id,
             'checkout_url': f"/accounts/payment-checkout/?order_id={payment.order_id}",
             'gateway_name': payment.gateway_name
         })
 
-@login_required
 @csrf_exempt
 def api_verify_payment(request):
     """
@@ -1158,6 +1179,19 @@ def api_verify_payment(request):
     """
     if request.method not in ['GET', 'POST']:
         return JsonResponse({'error': 'GET or POST required'}, status=405)
+
+    if not request.user.is_authenticated:
+        session_key = request.headers.get('X-Session-Key') or request.META.get('HTTP_X_SESSION_KEY')
+        if session_key:
+            from django.contrib.sessions.models import Session
+            try:
+                s = Session.objects.get(session_key=session_key)
+                uid = s.get_decoded().get('_auth_user_id')
+                if uid:
+                    user = User.objects.get(pk=uid)
+                    request.user = user
+            except Exception:
+                pass
 
     order_id = request.GET.get('order_id') or request.POST.get('order_id')
     if not order_id and request.body:
