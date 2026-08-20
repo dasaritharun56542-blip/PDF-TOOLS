@@ -16,55 +16,10 @@ export default function Login() {
     clearMessage();
   }, []);
 
-  const handleGoogleLogin = async (e) => {
+  const handleGoogleLogin = (e) => {
     if (e) e.preventDefault();
     clearMessage();
     setSubmitting(true);
-    const activeClientId = googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '635971381104-v3q2u69tim8oihrjrrcispfsvhjsjim4.apps.googleusercontent.com';
-
-    if (window.google?.accounts?.oauth2) {
-      try {
-        const client = window.google.accounts.oauth2.initTokenClient({
-          client_id: activeClientId,
-          scope: 'profile email openid',
-          callback: async (response) => {
-            if (response.error) {
-              setSubmitting(false);
-              if (response.error !== 'popup_closed_by_user') {
-                setMessage({ type: 'danger', text: `Google Authentication Error: ${response.error}` });
-              }
-              return;
-            }
-
-            const token = response.access_token || response.credential || response.id_token;
-            if (token) {
-              const res = await loginWithGoogle(token);
-              setSubmitting(false);
-              if (res && res.success) {
-                navigate('/dashboard');
-              } else if (res && res.error) {
-                setMessage({ type: 'danger', text: res.error });
-              }
-            } else {
-              setSubmitting(false);
-              setMessage({ type: 'danger', text: 'Could not obtain token from Google profile.' });
-            }
-          },
-          error_callback: (err) => {
-            setSubmitting(false);
-            if (err?.type !== 'popup_closed') {
-              const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-              window.location.href = `${backendUrl}/accounts/google/login/?process=login`;
-            }
-          }
-        });
-        client.requestAccessToken({ prompt: 'select_account' });
-        return;
-      } catch (err) {
-        console.error("Failed to launch Google auth client:", err);
-      }
-    }
-
     const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
     window.location.href = `${backendUrl}/accounts/google/login/?process=login`;
   };
