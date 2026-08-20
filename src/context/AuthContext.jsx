@@ -76,14 +76,14 @@ export const AuthProvider = ({ children }) => {
       if (res.data && res.data.google_client_id) {
         setGoogleClientId(res.data.google_client_id);
       }
-      if (res.data && res.data.session_key) {
-        localStorage.setItem('pdf_powerhouse_session_key', res.data.session_key);
-        axios.defaults.headers.common['X-Session-Key'] = res.data.session_key;
-        axios.defaults.headers.common['Authorization'] = 'Bearer ' + res.data.session_key;
-      }
       if (res.data && res.data.authenticated && res.data.user) {
         setUser(res.data.user);
         localStorage.setItem('pdf_powerhouse_user', JSON.stringify(res.data.user));
+        if (res.data.session_key) {
+          localStorage.setItem('pdf_powerhouse_session_key', res.data.session_key);
+          axios.defaults.headers.common['X-Session-Key'] = res.data.session_key;
+          axios.defaults.headers.common['Authorization'] = 'Bearer ' + res.data.session_key;
+        }
       } else if (res.data && res.data.authenticated === false && !sKey) {
         setUser(null);
         localStorage.removeItem('pdf_powerhouse_user');

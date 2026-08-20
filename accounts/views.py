@@ -645,13 +645,18 @@ def auth_status(request):
             except Exception:
                 pass
 
-            if not request.session.session_key:
-                request.session.save()
+            s_key = getattr(request.session, 'session_key', None)
+            if not s_key:
+                s_key = (
+                    request.headers.get('X-Session-Key') or
+                    request.META.get('HTTP_X_SESSION_KEY') or
+                    request.GET.get('session_key')
+                )
 
             return JsonResponse({
                 'authenticated': True,
                 'google_client_id': client_id,
-                'session_key': request.session.session_key,
+                'session_key': s_key,
                 'user': {
                     'username': user.username,
                     'email': user.email,
@@ -667,7 +672,6 @@ def auth_status(request):
             return JsonResponse({
                 'authenticated': True,
                 'google_client_id': client_id,
-                'session_key': request.session.session_key if hasattr(request, 'session') else None,
                 'user': {
                     'username': user.username,
                     'email': user.email,
