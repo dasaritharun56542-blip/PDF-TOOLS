@@ -564,98 +564,121 @@ def api_dashboard_data(request):
         
     admin_stats = None
     if request.user.is_superuser or request.user.is_staff:
-        total_users = User.objects.using('default').count()
-        premium_users = Profile.objects.using('default').filter(is_pro=True, pro_expiry__gt=now).count()
-        
-        trial_cutoff = now - datetime.timedelta(days=7)
-        trial_users = User.objects.using('default').filter(date_joined__gt=trial_cutoff).exclude(profile__is_pro=True, profile__pro_expiry__gt=now).count()
-        
-        from django.db.models import Sum
-        revenue_sum = Payment.objects.using('default').filter(status='success').aggregate(Sum('amount'))['amount__sum'] or 0
-        
-        # Today's, Monthly, and Yearly revenue
-        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
-        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
-        year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        
-        revenue_today = Payment.objects.using('default').filter(status='success', created_at__gte=today_start).aggregate(Sum('amount'))['amount__sum'] or 0
-        revenue_monthly = Payment.objects.using('default').filter(status='success', created_at__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
-        revenue_yearly = Payment.objects.using('default').filter(status='success', created_at__gte=year_start).aggregate(Sum('amount'))['amount__sum'] or 0
-        
-        active_subs = Subscription.objects.using('default').filter(is_active=True, end_date__gt=now).count()
-        expired_subs = Subscription.objects.using('default').filter(is_active=False).count()
-        failed_payments = Payment.objects.using('default').filter(status='failed').count()
-        refunds_count = Payment.objects.using('default').filter(status='refunded').count()
-        
-        # Simple count of renewals
-        renewals_count = Subscription.objects.using('default').exclude(plan=None).count() - Subscription.objects.using('default').exclude(plan=None).values('user').distinct().count()
-        renewals_count = max(0, renewals_count)
-        
-        # Top Customers
-        top_customers_query = Payment.objects.using('default').filter(status='success').values('user__username', 'user__email').annotate(total_spent=Sum('amount')).order_by('-total_spent')[:10]
-        top_customers = []
-        for tc in top_customers_query:
-            top_customers.append({
-                'username': tc['user__username'],
-                'email': tc['user__email'],
-                'total_spent': str(tc['total_spent'])
-            })
+        try:
+            total_users = User.objects.using('default').count()
+            premium_users = Profile.objects.using('default').filter(is_pro=True, pro_expiry__gt=now).count()
             
-        recent_payments = Payment.objects.using('default').all().order_by('-created_at')[:50]
-        recent_txns = []
-        for rp in recent_payments:
-            inv_id = None
-            inv_num = None
+            trial_cutoff = now - datetime.timedelta(days=7)
+            trial_users = User.objects.using('default').filter(date_joined__gt=trial_cutoff).exclude(profile__is_pro=True, profile__pro_expiry__gt=now).count()
+            
+            from django.db.models import Sum
+            revenue_sum = Payment.objects.using('default').filter(status='success').aggregate(Sum('amount'))['amount__sum'] or 0
+            
+            today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+            year_start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+            
+            revenue_today = Payment.objects.using('default').filter(status='success', created_at__gte=today_start).aggregate(Sum('amount'))['amount__sum'] or 0
+            revenue_monthly = Payment.objects.using('default').filter(status='success', created_at__gte=month_start).aggregate(Sum('amount'))['amount__sum'] or 0
+            revenue_yearly = Payment.objects.using('default').filter(status='success', created_at__gte=year_start).aggregate(Sum('amount'))['amount__sum'] or 0
+            
+            active_subs = Subscription.objects.using('default').filter(is_active=True, end_date__gt=now).count()
+            expired_subs = Subscription.objects.using('default').filter(is_active=False).count()
+            failed_payments = Payment.objects.using('default').filter(status='failed').count()
+            refunds_count = Payment.objects.using('default').filter(status='refunded').count()
+            
+            renewals_count = Subscription.objects.using('default').exclude(plan=None).count() - Subscription.objects.using('default').exclude(plan=None).values('user').distinct().count()
+            renewals_count = max(0, renewals_count)
+            
+            top_customers_query = Payment.objects.using('default').filter(status='success').values('user__username', 'user__email').annotate(total_spent=Sum('amount')).order_by('-total_spent')[:10]
+            top_customers = []
+            for tc in top_customers_query:
+                top_customers.append({
+                    'username': tc['user__username'],
+                    'email': tc['user__email'],
+                    'total_spent': str(tc['total_spent'])
+                })
+                
+            recent_payments = Payment.objects.using('default').all().order_by('-created_at')[:50]
+            recent_txns = []
+            for rp in recent_payments:
+                inv_id = None
+                inv_num = None
+                try:
+                    inv = rp.invoice
+                    inv_id = inv.id
+                    inv_num = inv.invoice_number
+                except Exception:
+                    pass
+
+                recent_txns.append({
+                    'id': rp.id,
+                    'order_id': rp.order_id,
+                    'gateway_order_id': rp.gateway_order_id or rp.order_id,
+                    'gateway_payment_id': rp.gateway_payment_id or rp.transaction_id or 'N/A',
+                    'username': rp.user.username,
+                    'email': rp.user.email,
+                    'amount': str(rp.amount),
+                    'currency': rp.currency,
+                    'plan_name': rp.plan.name if rp.plan else 'PRO Plan',
+                    'payment_method': rp.gateway_name or 'Airtel Payments Bank Settlement Gateway',
+                    'status': rp.status,
+                    'created_at': rp.created_at.strftime('%Y-%m-%d %H:%M:%S'),
+                    'invoice_id': inv_id,
+                    'invoice_number': inv_num,
+                    'refund_status': 'REFUNDED' if rp.status == 'REFUNDED' else 'NONE',
+                    'webhook_status': 'VERIFIED' if rp.status in ['SUCCESS', 'REFUNDED'] else 'PENDING'
+                })
+                
+            tool_analytics = {}
             try:
-                inv = rp.invoice
-                inv_id = inv.id
-                inv_num = inv.invoice_number
+                from django.db.models import Count
+                tool_counts = ToolUsageLog.objects.using('default').values('tool_name').annotate(count=Count('id')).order_by('-count')
+                tool_analytics = {item['tool_name']: item['count'] for item in tool_counts}
             except Exception:
                 pass
-
-            recent_txns.append({
-                'id': rp.id,
-                'order_id': rp.order_id,
-                'gateway_order_id': rp.gateway_order_id or rp.order_id,
-                'gateway_payment_id': rp.gateway_payment_id or rp.transaction_id or 'N/A',
-                'username': rp.user.username,
-                'email': rp.user.email,
-                'amount': str(rp.amount),
-                'currency': rp.currency,
-                'plan_name': rp.plan.name if rp.plan else 'PRO Plan',
-                'payment_method': rp.gateway_name or 'Airtel Payments Bank Settlement Gateway',
-                'status': rp.status,
-                'created_at': rp.created_at.strftime('%Y-%m-%d %H:%M:%S'),
-                'invoice_id': inv_id,
-                'invoice_number': inv_num,
-                'refund_status': 'REFUNDED' if rp.status == 'REFUNDED' else 'NONE',
-                'webhook_status': 'VERIFIED' if rp.status in ['SUCCESS', 'REFUNDED'] else 'PENDING'
-            })
             
-        from django.db.models import Count
-        tool_counts = ToolUsageLog.objects.using('default').values('tool_name').annotate(count=Count('id')).order_by('-count')
-        tool_analytics = {item['tool_name']: item['count'] for item in tool_counts}
-        
-        admin_stats = {
-            'total_users': total_users,
-            'premium_users': premium_users,
-            'trial_users': trial_users,
-            'revenue': str(revenue_sum),
-            'revenue_today': str(revenue_today),
-            'revenue_monthly': str(revenue_monthly),
-            'revenue_yearly': str(revenue_yearly),
-            'active_subscriptions': active_subs,
-            'expired_subscriptions': expired_subs,
-            'failed_payments': failed_payments,
-            'refunds_count': refunds_count,
-            'renewals_count': renewals_count,
-            'top_customers': top_customers,
-            'recent_transactions': recent_txns,
-            'tool_analytics': tool_analytics
-        }
-        
+            admin_stats = {
+                'total_users': total_users,
+                'premium_users': premium_users,
+                'trial_users': trial_users,
+                'revenue': str(revenue_sum),
+                'revenue_today': str(revenue_today),
+                'revenue_monthly': str(revenue_monthly),
+                'revenue_yearly': str(revenue_yearly),
+                'active_subscriptions': active_subs,
+                'expired_subscriptions': expired_subs,
+                'failed_payments': failed_payments,
+                'refunds_count': refunds_count,
+                'renewals_count': renewals_count,
+                'top_customers': top_customers,
+                'recent_transactions': recent_txns,
+                'tool_analytics': tool_analytics
+            }
+        except Exception as e:
+            print("Notice: Exception calculating admin_stats:", e)
+            admin_stats = None
+
+    total_usage_count = 0
+    try:
+        total_usage_count = ToolUsageLog.objects.filter(user_id=request.user.id).count()
+    except Exception:
+        pass
+
     return JsonResponse({
-        'total': ToolUsageLog.objects.filter(user_id=request.user.id).count(),
+        'total': total_usage_count,
+        'file_count': len(processed_files),
+        'trial_used': profile.trial_used,
+        'processed_files': processed_list,
+        'uploaded_files': uploaded_list,
+        'plan_name': plan_name,
+        'is_premium': is_premium,
+        'days_left': days_left,
+        'trial_active': trial_active,
+        'trial_days_remaining': trial_days_remaining,
+        'today_duration_seconds': today_duration_seconds,
+        'today_remaining_seconds': today_remaining_seconds,
+        'today_remaining_minutes': round(today_remaining_seconds / 60.0, 1),
         'file_count': len(processed_files),
         'trial_used': profile.trial_used,
         'processed_files': processed_list,
