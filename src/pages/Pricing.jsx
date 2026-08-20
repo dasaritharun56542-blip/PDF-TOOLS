@@ -21,7 +21,7 @@ export default function Pricing() {
   // Official Subscription Plans Definition
   const officialPlans = [
     { id: 'free_trial', days: 7, price: 0, name: '7 Days Free Trial', badge: 'Free Trial', features: ['Access to basic tools', '7 Days full trial', 'Standard processing'] },
-    { id: '1_month', days: 30, price: 99, name: '1 Month Pro', badge: 'Most Popular', features: ['Infinite Pro Tool Access', 'Large File Processing (200MB)', 'Ad-Free Clean Interface', '24/7 VIP Support'] },
+    { id: '1_month', days: 30, price: 1, name: '1 Month Pro', badge: 'Most Popular', features: ['Infinite Pro Tool Access', 'Large File Processing (200MB)', 'Ad-Free Clean Interface', '24/7 VIP Support'] },
     { id: '3_months', days: 90, price: 230, name: '3 Months Pro', badge: 'Saver', features: ['Infinite Pro Tool Access', 'Large File Processing (200MB)', 'Ad-Free Clean Interface', '24/7 VIP Support'] },
     { id: '6_months', days: 180, price: 530, name: '6 Months Pro', badge: 'Super Saver', features: ['Infinite Pro Tool Access', 'Large File Processing (200MB)', 'Ad-Free Clean Interface', '24/7 VIP Support'] },
     { id: '1_year', days: 365, price: 999, name: '1 Year Pro', badge: 'Best Value', features: ['Infinite Pro Tool Access', 'Large File Processing (200MB)', 'Ad-Free Clean Interface', '24/7 VIP Support'] }

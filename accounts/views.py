@@ -16,7 +16,7 @@ from accounts.services.payment_gateway import payment_gateway_service
 stripe.api_key = settings.STRIPE_SECRET_KEY
 
 SUBSCRIPTION_PLANS = [
-    {'id': '1_month', 'days': 30, 'price': 40, 'name': '1 Month Pro'},
+    {'id': '1_month', 'days': 30, 'price': 1, 'name': '1 Month Pro'},
     {'id': '3_months', 'days': 90, 'price': 230, 'name': '3 Months Pro'},
     {'id': '6_months', 'days': 180, 'price': 530, 'name': '6 Months Pro'},
     {'id': '1_year', 'days': 365, 'price': 999, 'name': '1 Year Pro'},
@@ -1093,6 +1093,8 @@ def api_create_payment_order(request):
         '1_year': 365
     }
     duration = plan_mapping.get(plan_id)
+    plan_info = next((p for p in SUBSCRIPTION_PLANS if p['id'] == plan_id), None)
+
     plan = None
     if duration:
         plan = Plan.objects.using('default').filter(duration_days=duration).first()
@@ -1103,18 +1105,22 @@ def api_create_payment_order(request):
         except Exception:
             plan = None
 
+    if not plan and plan_info:
+        plan, _ = Plan.objects.using('default').get_or_create(
+            duration_days=plan_info['days'],
+            defaults={
+                'name': plan_info['name'],
+                'price': plan_info['price']
+            }
+        )
+
+    if plan and plan_info:
+        if float(plan.price) != float(plan_info['price']):
+            plan.price = plan_info['price']
+            plan.save()
+
     if not plan:
-        plan_info = next((p for p in SUBSCRIPTION_PLANS if p['id'] == plan_id), None)
-        if plan_info:
-            plan, _ = Plan.objects.using('default').get_or_create(
-                duration_days=plan_info['days'],
-                defaults={
-                    'name': plan_info['name'],
-                    'price': plan_info['price']
-                }
-            )
-        else:
-            return JsonResponse({'error': 'Invalid subscription plan selected'}, status=400)
+        return JsonResponse({'error': 'Invalid subscription plan selected'}, status=400)
 
     # Use Gateway Service to create order with backend pricing
     payment = payment_gateway_service.create_order(request.user, plan)
