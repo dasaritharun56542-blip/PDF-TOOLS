@@ -236,6 +236,9 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setUser(null);
       localStorage.removeItem('pdf_powerhouse_user');
+      localStorage.removeItem('pdf_powerhouse_session_key');
+      delete axios.defaults.headers.common['X-Session-Key'];
+      delete axios.defaults.headers.common['Authorization'];
       setMessage({ type: 'success', text: 'Logged out successfully.' });
     }
   };
@@ -248,8 +251,9 @@ export const AuthProvider = ({ children }) => {
         : (accessToken?.access_token || accessToken?.credential || accessToken?.id_token || accessToken?.token);
 
       if (!token) {
-        window.location.href = '/accounts/google/login/?process=login';
-        return { success: false, error: 'Redirecting to Google...' };
+        const errMsg = 'No valid authentication token received from Google profile.';
+        setMessage({ type: 'danger', text: errMsg });
+        return { success: false, error: errMsg };
       }
 
       const res = await axios.post('/accounts/google-login/', { access_token: token, credential: token, id_token: token });
@@ -259,20 +263,18 @@ export const AuthProvider = ({ children }) => {
           axios.defaults.headers.common['X-Session-Key'] = res.data.session_key;
           axios.defaults.headers.common['Authorization'] = 'Bearer ' + res.data.session_key;
         }
-        setUser(res.data.user);
         localStorage.setItem('pdf_powerhouse_user', JSON.stringify(res.data.user));
+        setUser(res.data.user);
         return { success: true };
       }
       
-      // Fallback to direct OAuth redirect if API returns error
-      console.warn("Google popup API returned error, redirecting to OAuth fallback:", res.data?.error);
-      window.location.href = '/accounts/google/login/?process=login';
-      return { success: false, error: 'Redirecting to Google...' };
+      const errMsg = res.data?.error || 'Google login could not complete. Please try again.';
+      setMessage({ type: 'danger', text: errMsg });
+      return { success: false, error: errMsg };
     } catch (err) {
-      // Fallback to direct OAuth redirect if network or server error occurs
-      console.warn("Google login API error, redirecting to OAuth fallback:", err);
-      window.location.href = '/accounts/google/login/?process=login';
-      return { success: false, error: 'Redirecting to Google...' };
+      const errMsg = err.response?.data?.error || 'Server error during Google authentication. Please try again.';
+      setMessage({ type: 'danger', text: errMsg });
+      return { success: false, error: errMsg };
     }
   };
 
