@@ -784,35 +784,45 @@ def google_auth_callback_api(request):
     
     try:
         from allauth.socialaccount.models import SocialAccount, SocialApp
-        social_app, _ = SocialApp.objects.using('default').update_or_create(
-            provider='google',
-            defaults={
-                'name': 'Google',
-                'client_id': client_id,
-                'secret': os.getenv('GOOGLE_CLIENT_SECRET', '')
-            }
-        )
-        social_acc, _ = SocialAccount.objects.using('default').get_or_create(
-            user=user,
-            provider='google',
-            defaults={
-                'uid': google_id,
-                'extra_data': {
-                    'email': email,
-                    'name': name,
-                    'picture': picture,
-                    'email_verified': True
+        try:
+            SocialApp.objects.using('default').update_or_create(
+                provider='google',
+                defaults={
+                    'name': 'Google',
+                    'client_id': client_id,
+                    'secret': os.getenv('GOOGLE_CLIENT_SECRET', '')
                 }
-            }
-        )
-        if social_acc.extra_data.get('picture') != picture or social_acc.extra_data.get('name') != name:
-            social_acc.extra_data['picture'] = picture
-            social_acc.extra_data['name'] = name
-            social_acc.save()
+            )
+        except Exception:
+            pass
+
+        try:
+            social_acc = SocialAccount.objects.using('default').filter(user=user, provider='google').first()
+            if not social_acc:
+                SocialAccount.objects.using('default').create(
+                    user=user,
+                    provider='google',
+                    uid=google_id,
+                    extra_data={
+                        'email': email,
+                        'name': name,
+                        'picture': picture,
+                        'email_verified': True
+                    }
+                )
+            else:
+                extra = social_acc.extra_data or {}
+                extra['picture'] = picture
+                extra['name'] = name
+                social_acc.extra_data = extra
+                social_acc.save()
+        except Exception:
+            pass
     except Exception:
         pass
 
     login(request, user, backend='django.contrib.auth.backends.ModelBackend')
+    request.user = user
 
     if not request.session.session_key:
         request.session.save()

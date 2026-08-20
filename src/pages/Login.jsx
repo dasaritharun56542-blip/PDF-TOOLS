@@ -16,42 +16,11 @@ export default function Login() {
     clearMessage();
   }, []);
 
-  useEffect(() => {
-    if (googleScriptLoaded && window.google?.accounts?.id) {
-      try {
-        window.google.accounts.id.initialize({
-          client_id: activeClientId,
-          callback: async (response) => {
-            if (response.credential) {
-              setSubmitting(true);
-              const res = await loginWithGoogle(response.credential);
-              setSubmitting(false);
-              if (res.success) {
-                navigate('/dashboard');
-              }
-            }
-          }
-        });
-        const container = document.getElementById('google-signin-btn-container');
-        if (container && container.childElementCount === 0) {
-          window.google.accounts.id.renderButton(container, {
-            theme: 'outline',
-            size: 'large',
-            width: '100%',
-            shape: 'pill',
-            text: 'continue_with'
-          });
-        }
-      } catch (err) {
-        console.warn("GSI init warning:", err);
-      }
-    }
-  }, [googleScriptLoaded, activeClientId]);
-
   const handleGoogleLogin = async (e) => {
     if (e) e.preventDefault();
     clearMessage();
     setSubmitting(true);
+    const activeClientId = googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '635971381104-v3q2u69tim8oihrjrrcispfsvhjsjim4.apps.googleusercontent.com';
 
     if (window.google?.accounts?.oauth2) {
       try {
@@ -59,19 +28,26 @@ export default function Login() {
           client_id: activeClientId,
           scope: 'profile email openid',
           callback: async (response) => {
+            if (response.error) {
+              setSubmitting(false);
+              if (response.error !== 'popup_closed_by_user') {
+                setMessage({ type: 'danger', text: `Google Authentication Error: ${response.error}` });
+              }
+              return;
+            }
+
             const token = response.access_token || response.credential || response.id_token;
             if (token) {
               const res = await loginWithGoogle(token);
               setSubmitting(false);
-              if (res.success) {
+              if (res && res.success) {
                 navigate('/dashboard');
+              } else if (res && res.error) {
+                setMessage({ type: 'danger', text: res.error });
               }
             } else {
               setSubmitting(false);
-              if (response.error && response.error !== 'popup_closed_by_user') {
-                const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
-                window.location.href = `${backendUrl}/accounts/google/login/?process=login`;
-              }
+              setMessage({ type: 'danger', text: 'Could not obtain token from Google profile.' });
             }
           },
           error_callback: (err) => {
@@ -85,11 +61,10 @@ export default function Login() {
         client.requestAccessToken({ prompt: 'select_account' });
         return;
       } catch (err) {
-        console.error("Failed to launch Google auth client, redirecting:", err);
+        console.error("Failed to launch Google auth client:", err);
       }
     }
 
-    // Fallback to direct OAuth redirect
     const backendUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
     window.location.href = `${backendUrl}/accounts/google/login/?process=login`;
   };
@@ -216,8 +191,6 @@ export default function Login() {
               OR CONTINUE WITH
             </span>
           </div>
-
-          <div id="google-signin-btn-container" className="mb-3 d-flex justify-content-center"></div>
 
           <div className="d-grid mb-3">
             <button
