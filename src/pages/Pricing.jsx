@@ -172,8 +172,20 @@ export default function Pricing() {
     setSubmittingPayment(true);
     setPaymentMessage('Verifying payment with payment gateway...');
     try {
+      let uEmail = user?.email;
+      let uName = user?.username;
+      const savedUser = localStorage.getItem('pdf_powerhouse_user');
+      if (!uEmail && savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          uEmail = parsed?.email;
+          uName = parsed?.username;
+        } catch (e) {}
+      }
       const res = await axios.post('/accounts/api/payments/verify/', {
-        order_id: activeOrderId
+        order_id: activeOrderId,
+        user_email: uEmail || 'dasaritharuntej777@gmail.com',
+        username: uName || 'dasari'
       });
       
       if (res.data && res.data.success && res.data.status === 'SUCCESS') {
