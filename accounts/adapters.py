@@ -7,6 +7,8 @@ class CustomSocialAccountAdapter(DefaultSocialAccountAdapter):
     def get_login_redirect_url(self, request):
         from django.conf import settings
         frontend_url = getattr(settings, 'FRONTEND_URL', '').rstrip('/')
+        if hasattr(request, 'user') and request.user and request.user.is_authenticated:
+            request.session.save()
         session_key = getattr(request.session, 'session_key', None)
         if not session_key:
             request.session.save()

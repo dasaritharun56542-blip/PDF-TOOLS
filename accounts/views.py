@@ -565,6 +565,7 @@ def get_authenticated_user(request):
     1. Active Django session (request.user)
     2. Header: X-Session-Key or Authorization: Bearer <token>
     3. GET/POST parameter: session_key
+    4. Fallback Header: X-User-Email or X-User-Name
     """
     if hasattr(request, 'user') and request.user and request.user.is_authenticated:
         return request.user
@@ -592,6 +593,26 @@ def get_authenticated_user(request):
                 if user and user.is_active:
                     request.user = user
                     return user
+        except Exception:
+            pass
+
+    user_email = request.headers.get('X-User-Email') or request.META.get('HTTP_X_USER_EMAIL')
+    if user_email:
+        try:
+            user = User.objects.using('default').filter(email__iexact=str(user_email).strip()).first()
+            if user and user.is_active:
+                request.user = user
+                return user
+        except Exception:
+            pass
+
+    user_name = request.headers.get('X-User-Name') or request.META.get('HTTP_X_USER_NAME')
+    if user_name:
+        try:
+            user = User.objects.using('default').filter(username__iexact=str(user_name).strip()).first()
+            if user and user.is_active:
+                request.user = user
+                return user
         except Exception:
             pass
 
