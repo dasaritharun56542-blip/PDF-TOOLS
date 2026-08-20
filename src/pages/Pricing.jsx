@@ -110,29 +110,23 @@ export default function Pricing() {
               image: "/static/images/logo_circle.png",
               order_id: res.data.razorpay_order_id,
               handler: async function (response) {
-                setPaymentModalOpen(true);
                 setSubmittingPayment(true);
-                setPaymentMessage('Verifying payment with Razorpay...');
                 try {
                   const verifyRes = await axios.post('/accounts/api/payments/verify/', {
                     order_id: res.data.order_id,
                     razorpay_payment_id: response.razorpay_payment_id,
                     razorpay_order_id: response.razorpay_order_id,
-                    razorpay_signature: response.razorpay_signature
+                    razorpay_signature: response.razorpay_signature,
+                    user_email: uEmail,
+                    username: uName
                   });
-                  if (verifyRes.data && verifyRes.data.success && verifyRes.data.status === 'SUCCESS') {
-                    setPaymentSuccess(true);
-                    setPaymentMessage('Payment Confirmed! PRO Activated 🎉');
-                    if (checkAuthStatus) await checkAuthStatus();
-                    setTimeout(() => {
-                      setPaymentModalOpen(false);
-                      navigate(`/accounts/payment-success?order_id=${res.data.order_id}`);
-                    }, 1000);
-                  } else {
-                    setPaymentMessage('Payment pending verification. Check status shortly.');
-                  }
+                  setPaymentModalOpen(false);
+                  if (checkAuthStatus) await checkAuthStatus();
+                  navigate(`/accounts/payment-success?order_id=${res.data.order_id}`);
                 } catch (vErr) {
-                  setPaymentMessage('Payment submitted. Verifying session status...');
+                  setPaymentModalOpen(false);
+                  if (checkAuthStatus) await checkAuthStatus();
+                  navigate(`/accounts/payment-success?order_id=${res.data.order_id}`);
                 } finally {
                   setSubmittingPayment(false);
                 }

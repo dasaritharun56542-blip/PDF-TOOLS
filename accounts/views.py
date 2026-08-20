@@ -1275,6 +1275,7 @@ def api_verify_payment(request):
 
     order_id = data.get('order_id') or request.GET.get('order_id')
     razorpay_payment_id = data.get('razorpay_payment_id')
+    u_email = data.get('user_email') or data.get('email')
 
     if not order_id:
         return JsonResponse({'error': 'order_id parameter is required'}, status=400)
@@ -1284,11 +1285,20 @@ def api_verify_payment(request):
     except Payment.DoesNotExist:
         return JsonResponse({'success': False, 'error': 'Order not found'}, status=404)
 
+    target_user = user
+    if not target_user and u_email:
+        target_user = User.objects.using('default').filter(email__iexact=str(u_email).strip()).first()
+    if not target_user:
+        target_user = payment.user
+
+    if target_user:
+        payment.user = target_user
+        payment.save()
+
     from accounts.services.payment_processor import process_payment_success
     txn_id = razorpay_payment_id or f"TXN-{payment.order_id}"
     process_payment_success(payment, gateway_payment_id=txn_id, raw_response=data)
 
-    target_user = payment.user or user
     if target_user:
         profile, _ = Profile.objects.using('default').get_or_create(user=target_user)
         profile.is_pro = True
@@ -1298,6 +1308,13 @@ def api_verify_payment(request):
         else:
             profile.pro_expiry = profile.pro_expiry + datetime.timedelta(days=duration)
         profile.save()
+
+        if target_user.email:
+            for matching_user in User.objects.using('default').filter(email__iexact=target_user.email):
+                m_prof, _ = Profile.objects.using('default').get_or_create(user=matching_user)
+                m_prof.is_pro = True
+                m_prof.pro_expiry = profile.pro_expiry
+                m_prof.save()
 
     payment.refresh_from_db()
 
