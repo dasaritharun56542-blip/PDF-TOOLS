@@ -408,7 +408,7 @@ export default function Pricing() {
                         LOCKED AMOUNT QR (₹{activePlan.price})
                       </span>
                       <img
-                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=9110396906@ybl&pn=PDFPowerHouse&am=${activePlan.price}&cu=INR&tn=${encodeURIComponent(activePlan.name)}`)}`}
+                        src={`https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(`upi://pay?pa=9110396906@ybl&pn=PDFPOWERHOUSE&tr=${activeOrderId || 'PPH1001'}&am=${Number(activePlan.price).toFixed(2)}&cu=INR&tn=ProPlan`)}`}
                         alt={`Locked Amount UPI QR Code - ₹${activePlan.price}`}
                         className="img-fluid rounded border p-2 bg-white mb-2"
                         style={{ width: '180px', height: '180px' }}

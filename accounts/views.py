@@ -67,7 +67,9 @@ def plan_details(request):
             upi_id = os.getenv('UPI_ID', '9110396906@ybl')
             import urllib.parse
             plan_name = plan.name if plan else 'Pro Plan'
-            upi_link = f"upi://pay?pa={upi_id}&pn=PDFPowerHouse&am={payment.amount}&cu=INR&tn={urllib.parse.quote(plan_name)}"
+            formatted_amount = f"{float(payment.amount):.2f}"
+            clean_tn = "ProPlan"
+            upi_link = f"upi://pay?pa={upi_id}&pn=PDFPOWERHOUSE&tr={payment.order_id}&am={formatted_amount}&cu=INR&tn={clean_tn}"
             qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(upi_link)}"
             return JsonResponse({
                 'success': True,
@@ -89,10 +91,9 @@ def plan_details(request):
     if not plan:
         return JsonResponse({'error': 'Invalid plan selected'}, status=400)
     upi_id = os.getenv('UPI_ID', '9110396906@ybl')
-    amount = plan['price']
-    name = plan['name']
-    import urllib.parse
-    upi_link = f"upi://pay?pa={upi_id}&pn=PDFPowerHouse&am={amount}&cu=INR&tn={urllib.parse.quote(name)}"
+    formatted_amount = f"{float(plan['price']):.2f}"
+    clean_tn = "ProPlan"
+    upi_link = f"upi://pay?pa={upi_id}&pn=PDFPOWERHOUSE&tr=PPH{int(time.time())}&am={formatted_amount}&cu=INR&tn={clean_tn}"
     qr_url = f"https://api.qrserver.com/v1/create-qr-code/?size=250x250&data={urllib.parse.quote(upi_link)}"
     return JsonResponse({
         'plan': plan,
