@@ -559,6 +559,44 @@ def get_google_client_id():
             pass
     return cid or '635971381104-v3q2u69tim8oihrjrrcispfsvhjsjim4.apps.googleusercontent.com'
 
+def get_authenticated_user(request):
+    """
+    Unified helper to resolve the authenticated user from:
+    1. Active Django session (request.user)
+    2. Header: X-Session-Key or Authorization: Bearer <token>
+    3. GET/POST parameter: session_key
+    """
+    if hasattr(request, 'user') and request.user and request.user.is_authenticated:
+        return request.user
+
+    session_key = (
+        request.headers.get('X-Session-Key') or
+        request.META.get('HTTP_X_SESSION_KEY') or
+        request.GET.get('session_key') or
+        request.POST.get('session_key')
+    )
+
+    if not session_key:
+        auth_header = request.headers.get('Authorization') or request.META.get('HTTP_AUTHORIZATION', '')
+        if auth_header.startswith('Bearer '):
+            session_key = auth_header.split('Bearer ')[1].strip()
+
+    if session_key:
+        from django.contrib.sessions.models import Session
+        try:
+            session = Session.objects.using('default').get(session_key=session_key)
+            session_data = session.get_decoded()
+            user_id = session_data.get('_auth_user_id')
+            if user_id:
+                user = User.objects.using('default').get(pk=user_id)
+                if user and user.is_active:
+                    request.user = user
+                    return user
+        except Exception:
+            pass
+
+    return None
+
 @ensure_csrf_cookie
 def auth_status(request):
     client_id = get_google_client_id()
@@ -586,19 +624,21 @@ def auth_status(request):
     except Exception:
         pass
 
-    if request.user.is_authenticated:
+    user = get_authenticated_user(request)
+    if user:
+        request.user = user
         try:
             from accounts.models import Profile
-            profile, _ = Profile.objects.using('default').get_or_create(user=request.user)
+            profile, _ = Profile.objects.using('default').get_or_create(user=user)
             if not profile.trial_used:
                 from .utils import activate_free_trial
-                activate_free_trial(request.user)
+                activate_free_trial(user)
                 profile.refresh_from_db()
             avatar_url = None
             google_name = None
             try:
                 from allauth.socialaccount.models import SocialAccount
-                social_acc = SocialAccount.objects.using('default').filter(user=request.user, provider='google').first()
+                social_acc = SocialAccount.objects.using('default').filter(user=user, provider='google').first()
                 if social_acc and social_acc.extra_data:
                     avatar_url = social_acc.extra_data.get('picture')
                     google_name = social_acc.extra_data.get('name')
@@ -613,8 +653,8 @@ def auth_status(request):
                 'google_client_id': client_id,
                 'session_key': request.session.session_key,
                 'user': {
-                    'username': request.user.username,
-                    'email': request.user.email,
+                    'username': user.username,
+                    'email': user.email,
                     'is_pro': getattr(profile, 'is_pro_active', False),
                     'days_left': getattr(profile, 'days_remaining', 0),
                     'trial_used': getattr(profile, 'trial_used', False),
@@ -629,8 +669,8 @@ def auth_status(request):
                 'google_client_id': client_id,
                 'session_key': request.session.session_key if hasattr(request, 'session') else None,
                 'user': {
-                    'username': request.user.username,
-                    'email': request.user.email,
+                    'username': user.username,
+                    'email': user.email,
                     'is_pro': False,
                     'days_left': 0,
                     'trial_used': False,
@@ -1076,21 +1116,10 @@ def api_create_payment_order(request):
     if request.method != 'POST':
         return JsonResponse({'error': 'POST method required'}, status=405)
 
-    if not request.user.is_authenticated:
-        session_key = request.headers.get('X-Session-Key') or request.META.get('HTTP_X_SESSION_KEY')
-        if session_key:
-            from django.contrib.sessions.models import Session
-            try:
-                s = Session.objects.get(session_key=session_key)
-                uid = s.get_decoded().get('_auth_user_id')
-                if uid:
-                    user = User.objects.get(pk=uid)
-                    request.user = user
-            except Exception:
-                pass
-
-    if not request.user.is_authenticated:
+    user = get_authenticated_user(request)
+    if not user:
         return JsonResponse({'success': False, 'error': 'Please log in to your account before selecting a plan.'}, status=401)
+    request.user = user
 
     try:
         data = json.loads(request.body)
@@ -1180,18 +1209,9 @@ def api_verify_payment(request):
     if request.method not in ['GET', 'POST']:
         return JsonResponse({'error': 'GET or POST required'}, status=405)
 
-    if not request.user.is_authenticated:
-        session_key = request.headers.get('X-Session-Key') or request.META.get('HTTP_X_SESSION_KEY')
-        if session_key:
-            from django.contrib.sessions.models import Session
-            try:
-                s = Session.objects.get(session_key=session_key)
-                uid = s.get_decoded().get('_auth_user_id')
-                if uid:
-                    user = User.objects.get(pk=uid)
-                    request.user = user
-            except Exception:
-                pass
+    user = get_authenticated_user(request)
+    if user:
+        request.user = user
 
     order_id = request.GET.get('order_id') or request.POST.get('order_id')
     if not order_id and request.body:

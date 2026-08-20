@@ -60,9 +60,15 @@ export default function Pricing() {
   };
 
   const handleCheckout = async (plan, event) => {
-    if (!user) {
+    const sKey = localStorage.getItem('pdf_powerhouse_session_key');
+    const savedUser = localStorage.getItem('pdf_powerhouse_user');
+    if (!user && !sKey && !savedUser) {
       navigate('/accounts/login?next=/accounts/pricing');
       return;
+    }
+    if (sKey) {
+      axios.defaults.headers.common['X-Session-Key'] = sKey;
+      axios.defaults.headers.common['Authorization'] = 'Bearer ' + sKey;
     }
     const btn = event?.currentTarget;
     let originalHtml = '';
