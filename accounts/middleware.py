@@ -6,14 +6,19 @@ class HeaderSessionAuthMiddleware(MiddlewareMixin):
     """
     Enterprise Cross-Site Session Authenticator.
     If modern browsers block third-party cookies from Render on Vercel,
-    this middleware checks for the X-Session-Key or Authorization header
+    this middleware checks for X-Session-Key, Authorization, or GET params
     and seamlessly attaches the authenticated user to request.user.
     """
     def process_request(self, request):
         if getattr(request, 'user', None) and request.user.is_authenticated:
             return
 
-        session_key = request.headers.get('X-Session-Key')
+        session_key = (
+            request.headers.get('X-Session-Key') or
+            request.GET.get('session_key') or
+            request.COOKIES.get('pdf_powerhouse_session_key') or
+            request.COOKIES.get('sessionid')
+        )
         if not session_key:
             auth_header = request.headers.get('Authorization', '')
             if auth_header.startswith('Bearer '):

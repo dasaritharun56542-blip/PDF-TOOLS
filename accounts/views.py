@@ -588,7 +588,8 @@ def auth_status(request):
 
     if request.user.is_authenticated:
         try:
-            profile = request.user.profile
+            from accounts.models import Profile
+            profile, _ = Profile.objects.using('default').get_or_create(user=request.user)
             if not profile.trial_used:
                 from .utils import activate_free_trial
                 activate_free_trial(request.user)
@@ -597,8 +598,8 @@ def auth_status(request):
             google_name = None
             try:
                 from allauth.socialaccount.models import SocialAccount
-                social_acc = SocialAccount.objects.filter(user=request.user, provider='google').first()
-                if social_acc:
+                social_acc = SocialAccount.objects.using('default').filter(user=request.user, provider='google').first()
+                if social_acc and social_acc.extra_data:
                     avatar_url = social_acc.extra_data.get('picture')
                     google_name = social_acc.extra_data.get('name')
             except Exception:
@@ -614,17 +615,28 @@ def auth_status(request):
                 'user': {
                     'username': request.user.username,
                     'email': request.user.email,
-                    'is_pro': profile.is_pro_active,
-                    'days_left': profile.days_remaining,
-                    'trial_used': profile.trial_used,
+                    'is_pro': getattr(profile, 'is_pro_active', False),
+                    'days_left': getattr(profile, 'days_remaining', 0),
+                    'trial_used': getattr(profile, 'trial_used', False),
                     'avatar_url': avatar_url,
                     'google_name': google_name
                 }
             })
         except Exception as e:
+            print("Notice: Exception in auth_status profile processing:", e)
             return JsonResponse({
-                'authenticated': False,
-                'google_client_id': client_id
+                'authenticated': True,
+                'google_client_id': client_id,
+                'session_key': request.session.session_key if hasattr(request, 'session') else None,
+                'user': {
+                    'username': request.user.username,
+                    'email': request.user.email,
+                    'is_pro': False,
+                    'days_left': 0,
+                    'trial_used': False,
+                    'avatar_url': None,
+                    'google_name': None
+                }
             })
     return JsonResponse({
         'authenticated': False,
