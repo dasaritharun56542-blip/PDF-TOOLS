@@ -981,7 +981,9 @@ Disallow: /process/
 
 Sitemap: https://pdf-tools-7.onrender.com/sitemap.xml
 """
-    return HttpResponse(content.strip(), content_type='text/plain')
+    resp = HttpResponse(content.strip(), content_type='text/plain; charset=utf-8')
+    resp['X-Robots-Tag'] = 'noindex, follow'
+    return resp
 
 def sitemap_xml(request):
     tools = [
@@ -1022,6 +1024,8 @@ def sitemap_xml(request):
         xml_lines.append('  </url>')
         
     xml_lines.append('</urlset>')
-    return HttpResponse('\n'.join(xml_lines), content_type='application/xml')
+    resp = HttpResponse('\n'.join(xml_lines), content_type='application/xml; charset=utf-8')
+    resp['X-Robots-Tag'] = 'noindex, follow'
+    return resp
 
 
