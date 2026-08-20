@@ -79,7 +79,20 @@ export default function Pricing() {
     }
 
     try {
-      const res = await axios.post('/accounts/api/payments/create-order/', { plan_id: plan.id });
+      let uEmail = user?.email;
+      let uName = user?.username;
+      if (!uEmail && savedUser) {
+        try {
+          const parsed = JSON.parse(savedUser);
+          uEmail = parsed?.email;
+          uName = parsed?.username;
+        } catch (e) {}
+      }
+      const res = await axios.post('/accounts/api/payments/create-order/', { 
+        plan_id: plan.id,
+        user_email: uEmail,
+        username: uName
+      });
       if (res.data && res.data.success) {
         setActivePlan(plan);
         setActiveOrderId(res.data.order_id);

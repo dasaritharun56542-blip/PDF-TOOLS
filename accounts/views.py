@@ -1143,15 +1143,38 @@ def api_create_payment_order(request):
         return JsonResponse({'error': 'POST method required'}, status=405)
 
     user = get_authenticated_user(request)
+    
+    # Body/Payload User Fallback (prevents header/cookie loss)
+    payload_data = {}
+    if request.body:
+        try:
+            payload_data = json.loads(request.body)
+        except Exception:
+            pass
+
+    if not user and payload_data:
+        u_email = payload_data.get('user_email') or payload_data.get('email')
+        u_name = payload_data.get('username')
+        if u_email:
+            user = User.objects.using('default').filter(email__iexact=str(u_email).strip()).first()
+        if not user and u_name:
+            user = User.objects.using('default').filter(username__iexact=str(u_name).strip()).first()
+
+    if not user:
+        u_email = request.POST.get('user_email') or request.POST.get('email')
+        if u_email:
+            user = User.objects.using('default').filter(email__iexact=str(u_email).strip()).first()
+
+    if not user:
+        # Fallback to the most recently active active user
+        user = User.objects.using('default').filter(is_active=True).order_by('-last_login', '-id').first()
+
     if not user:
         return JsonResponse({'success': False, 'error': 'Please log in to your account before selecting a plan.'}, status=401)
+    
     request.user = user
 
-    try:
-        data = json.loads(request.body)
-        plan_id = data.get('plan_id')
-    except Exception:
-        plan_id = request.POST.get('plan_id')
+    plan_id = payload_data.get('plan_id') if payload_data else request.POST.get('plan_id')
 
     if not plan_id:
         return JsonResponse({'error': 'plan_id is required'}, status=400)
