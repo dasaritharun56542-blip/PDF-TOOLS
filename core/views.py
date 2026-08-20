@@ -971,4 +971,57 @@ def error_500(request):
         return render(request, '500.html', status=500)
     return HttpResponse("<h1>500 Server Error</h1><p>The server encountered an error. Please try again in a few moments.</p>", status=500)
 
+def robots_txt(request):
+    content = """User-agent: *
+Allow: /
+Disallow: /admin/
+Disallow: /owner-portal-secret-manage-x89/
+Disallow: /api/
+Disallow: /process/
+
+Sitemap: https://pdf-tools-7.onrender.com/sitemap.xml
+"""
+    return HttpResponse(content.strip(), content_type='text/plain')
+
+def sitemap_xml(request):
+    tools = [
+        'merge', 'split', 'compress', 'image-to-pdf', 'pdf-to-jpg', 'pdf-to-png', 
+        'pdf-to-pdfa', 'rotate', 'watermark', 'page-numbers', 'repair', 'protect', 
+        'unlock', 'organize', 'delete-pages', 'extract-pages', 'sign-pdf', 'edit-pdf', 
+        'ocr-pdf', 'crop-pdf', 'remove-blank-pages', 'reverse-page-order', 'duplicate-pages', 
+        'header-footer', 'extract-images', 'flatten-pdf', 'pdf-thumbnail-viewer', 
+        'convert-image-format', 'resize-image', 'crop-image', 'compress-image', 'remove-background'
+    ]
+    pages = [
+        '',
+        'all-tools',
+        'accounts/pricing',
+        'about',
+        'contact',
+        'faq',
+        'privacy',
+        'terms',
+        'security-compliance'
+    ]
+    
+    xml_lines = ['<?xml version="1.0" encoding="UTF-8"?>', '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    
+    for p in pages:
+        loc = f"https://pdf-tools-7.onrender.com/{p}" if p else "https://pdf-tools-7.onrender.com/"
+        xml_lines.append('  <url>')
+        xml_lines.append(f'    <loc>{loc}</loc>')
+        xml_lines.append('    <changefreq>weekly</changefreq>')
+        xml_lines.append('    <priority>0.9</priority>')
+        xml_lines.append('  </url>')
+
+    for t in tools:
+        xml_lines.append('  <url>')
+        xml_lines.append(f'    <loc>https://pdf-tools-7.onrender.com/{t}</loc>')
+        xml_lines.append('    <changefreq>weekly</changefreq>')
+        xml_lines.append('    <priority>0.8</priority>')
+        xml_lines.append('  </url>')
+        
+    xml_lines.append('</urlset>')
+    return HttpResponse('\n'.join(xml_lines), content_type='application/xml')
+
 
