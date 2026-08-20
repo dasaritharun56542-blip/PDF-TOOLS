@@ -10,19 +10,48 @@ export default function Login() {
   const [showPassword, setShowPassword] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
+  const activeClientId = googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '635971381104-v3q2u69tim8oihrjrrcispfsvhjsjim4.apps.googleusercontent.com';
+
+  useEffect(() => {
+    clearMessage();
+  }, []);
+
+  useEffect(() => {
+    if (googleScriptLoaded && window.google?.accounts?.id) {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: activeClientId,
+          callback: async (response) => {
+            if (response.credential) {
+              setSubmitting(true);
+              const res = await loginWithGoogle(response.credential);
+              setSubmitting(false);
+              if (res.success) {
+                navigate('/dashboard');
+              }
+            }
+          }
+        });
+        const container = document.getElementById('google-signin-btn-container');
+        if (container && container.childElementCount === 0) {
+          window.google.accounts.id.renderButton(container, {
+            theme: 'outline',
+            size: 'large',
+            width: '100%',
+            shape: 'pill',
+            text: 'continue_with'
+          });
+        }
+      } catch (err) {
+        console.warn("GSI init warning:", err);
+      }
+    }
+  }, [googleScriptLoaded, activeClientId]);
+
   const handleGoogleLogin = async (e) => {
     if (e) e.preventDefault();
     clearMessage();
     setSubmitting(true);
-    let activeClientId = googleClientId || import.meta.env.VITE_GOOGLE_CLIENT_ID || '635971381104-v3q2u69tim8oihrjrrcispfsvhjsjim4.apps.googleusercontent.com';
-    if (!activeClientId) {
-      try {
-        const data = await checkAuthStatus();
-        if (data && data.google_client_id) {
-          activeClientId = data.google_client_id;
-        }
-      } catch (err) {}
-    }
 
     if (window.google?.accounts?.oauth2) {
       try {
@@ -66,18 +95,12 @@ export default function Login() {
   };
 
   useEffect(() => {
-    // Clear any messages when mounting
-    clearMessage();
-  }, []);
-
-  useEffect(() => {
     if (!loading && user) {
       navigate('/dashboard');
     }
   }, [user, loading, navigate]);
 
   useEffect(() => {
-    // If OTP flow triggered, redirect to verify-otp page
     if (otpSent) {
       navigate('/accounts/verify-otp');
     }
@@ -193,6 +216,8 @@ export default function Login() {
               OR CONTINUE WITH
             </span>
           </div>
+
+          <div id="google-signin-btn-container" className="mb-3 d-flex justify-content-center"></div>
 
           <div className="d-grid mb-3">
             <button
